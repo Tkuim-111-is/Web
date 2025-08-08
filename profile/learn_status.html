@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>學習歷程分析</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <h1>學習歷程分析</h1>
+            </div>
+            <div class="main-buttons">
+                <ul>
+                    <a href="/profile/index_login.html#home">首頁</a>
+                    <a href="/profile/index_login.html#about">關於我們</a>
+                    <a href="/profile/index_login.html#services">服務</a>
+                    <a href="/profile/learn_status.html">學習歷程分析</a>
+                    <a href="/profile/exam.html">測驗</a>
+                    <a href="/logout">登出</a>
+                </ul>
+            </div>
+        </div>
+    </header>
+
+    <section id="learning-analysis" class="learning-analysis">
+        <div class="container">
+            <br><br><br><br>
+            <!--
+            <div class="chart-container">
+                <h2>各關卡學習時間</h2>
+                <canvas id="learningTimeChart"></canvas>
+            </div>
+            -->
+            <div class="chart-container">
+                <h2>各關卡錯誤次數</h2>
+                <canvas id="errorCountChart"></canvas>
+            </div>
+            <!--
+            <div class="chart-container">
+                <h2>整體學習概況</h2>
+                <canvas id="overviewChart"></canvas>
+            </div>
+
+            <div class="summary-box">
+                <h1>學習總結</h1>
+                <p id="summary-text">載入中...</p>
+                <p>繼續保持這樣的學習熱情，你會越來越進步！</p>
+            </div>
+            -->
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <h2>資許你安全</h2>
+                    <p>沉浸式學習，資安教育</p>
+                </div>
+                <div class="footer-links">
+                    <h3>快速導覽</h3>
+                    <ul>
+                        <li><a href="/profile/index_login.html#home">首頁</a></li>
+                        <li><a href="/profile/index_login.html#about">關於我們</a></li>
+                        <li><a href="/profile/index_login.html#services">服務</a></li>
+                        <li><a href="/profile/learn_status.html">學習歷程分析</a></li>
+                        <li><a href="/profile/exam.html">測驗</a></li>
+                        <li><a href="/logout">登出</a></li>
+                    </ul>
+                </div>
+                <div class="footer-social">
+                    <h3>關注我們</h3>
+                    <div class="social-icons">
+                        <a href="#" class="social-icon"><img src="/static/images/facebook.svg" alt="Facebook"></a>
+                        <a href="#" class="social-icon"><img src="/static/images/twitter.svg" alt="Twitter"></a>
+                        <a href="#" class="social-icon"><img src="/static/images/instagram.svg" alt="Instagram"></a>
+                        <a href="#" class="social-icon"><img src="/static/images/linkedin.svg" alt="LinkedIn"></a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 淡江資管. 保留所有權利.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function isTokenExpired(token) {
+        if (!token) return true;
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            return Date.now() / 1000 > payload.exp;
+        } catch {
+            return true;
+        }
+        }
+
+        const token = localStorage.getItem('token');
+        if (!token || isTokenExpired(token)) {
+            localStorage.removeItem('token');
+            window.location.href = '/login.html';
+        }
+
+        // 取得學習歷程資料
+        async function fetchLearnStatus() {
+            try {
+                const res = await fetch('/api/learn_status', {
+                    headers: {
+                        'Authorization': 'Bearer ' + token
+                    }
+                });
+                const result = await res.json();
+                if (result.success) {
+                    const data = result.data;
+                    renderCharts(data);
+                    updateSummary(data);
+                } else {
+                    document.getElementById('summary-text').innerText = '無法取得學習歷程資料';
+                }
+            } catch (e) {
+                document.getElementById('summary-text').innerText = '載入學習歷程失敗';
+                console.error('載入學習歷程失敗', e);
+            }
+        }
+
+        // 根據資料渲染圖表
+        function renderCharts(data) {
+
+            // context_id 代表關卡，err_count 代表錯誤次數
+            const contextLabels = [...new Set(data.map(row => row.context_id))];
+            const learningTimes = contextLabels.map(label =>
+                data.filter(row => row.context_id === label).reduce((sum, row) => sum + (row.learning_time || 0), 0)
+            );
+            const errorRates = contextLabels.map(label =>
+                data.filter(row => row.context_id === label).reduce((sum, row) => sum + row.err_count, 0)
+            );
+
+            // 各關卡錯誤率
+            new Chart(document.getElementById('errorCountChart'), {
+                type: 'bar', // 長條圖
+                data: {
+                    labels: contextLabels,
+                    datasets: [{
+                        label: '錯誤次數',
+                        data: errorRates,
+                        backgroundColor: '#f43f5e',
+                        borderColor: '#b91c1c',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: true, position: 'bottom' }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            /*
+            // 各關卡學習時間
+            new Chart(document.getElementById('learningTimeChart'), {
+                type: 'line',
+                data: {
+                    labels: contextLabels,
+                    datasets: [{
+                        label: '學習時間 (分鐘)',
+                        data: learningTimes,
+                        backgroundColor: '#34d399',
+                        borderColor: '#065f46',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: true, position: 'bottom' }
+                    }
+                }
+            });
+
+            // 整體學習概況（正確/錯誤比例）
+            const totalErr = errorRates.reduce((a, b) => a + b, 0);
+            const total = data.length;
+            const correct = total > 0 ? total - totalErr : 0;
+            new Chart(document.getElementById('overviewChart'), {
+                type: 'pie',
+                data: {
+                    labels: ['正確', '錯誤'],
+                    datasets: [{
+                        label: '答題比例',
+                        data: [correct, totalErr],
+                        backgroundColor: ['#3b82f6', '#ef4444'],
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: true, position: 'bottom' }
+                    }
+                }
+            });
+            */
+        }
+
+        // 更新學習總結
+        function updateSummary(data) {
+            const totalTime = data.reduce((sum, row) => sum + (row.learning_time || 0), 0);
+            const totalErr = data.reduce((sum, row) => sum + row.err_count, 0);
+            const averageErrorRate = data.length > 0 ? (totalErr / data.length).toFixed(2) : 0;
+            document.getElementById('summary-text').innerText =
+                `你總共花了 ${totalTime} 分鐘學習，平均錯誤次數為 ${averageErrorRate}。`;
+        }
+
+        // 初始化
+        fetchLearnStatus();
+    </script>
+</body>
+</html>

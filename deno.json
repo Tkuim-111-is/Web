@@ -1,0 +1,54 @@
+{
+  "tasks": {
+    "start": "deno run --allow-net --allow-read server.ts",
+    "dev": "deno run --allow-net --allow-read --watch server.ts"
+  },
+  "importMap": "./import_map.json",
+  "compilerOptions": {
+    "lib": [
+      "deno.window",
+      "dom",
+      "dom.iterable",
+      "dom.asynciterable"
+    ]
+  },
+  "lint": {
+    "files": {
+      "include": [
+        "server.ts",
+        "static/js/",
+        "/*"
+      ]
+    },
+    "rules": {
+      "tags": [
+        "recommended"
+      ]
+    }
+  },
+  "fmt": {
+    "files": {
+      "include": [
+        "server.ts",
+        "static/js/",
+        "/*"
+      ]
+    },
+    "options": {
+      "useTabs": false,
+      "lineWidth": 100,
+      "indentWidth": 2,
+      "singleQuote": true,
+      "proseWrap": "preserve"
+    }
+  },
+  "deploy": {
+    "project": "0c9a6dc1-0725-4dc5-b392-86bc00bc1b07",
+    "exclude": [
+      "**/node_modules",
+      "**/node_modules"
+    ],
+    "include": [],
+    "entrypoint": "server.ts"
+  }
+}

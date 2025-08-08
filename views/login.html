@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登入</title>
+  <link rel="stylesheet" href="/static/css/auth.css">
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <link rel="icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <div class="logo">
+        <h1>資許你安全</h1>
+      </div>
+      <div class="main-buttons">
+        <ul>
+          <a href="index.html#home" class="active">首頁</a>
+          <a href="index.html#about">關於我們</a>
+          <a href="index.html#services">服務</a>
+          <a href="register.html">註冊</a>
+          <a href="login.html">登入</a>
+        </ul>   
+      </div>
+    </div>
+  </header>
+
+  <section class="auth-section">
+    <div class="container">
+      <div class="auth-container">
+        <div class="auth-header">
+          <h2>歡迎回來</h2>
+          <p>登入帳號，查看學習歷程與測驗</p>
+        </div>
+			<form id="loginForm" class="auth-form">
+				<div class="form-group">
+					<label for="email">電子郵件</label>
+					<input type="email" id="email" name="email" placeholder="請輸入電子郵件" required>
+				</div>
+				<div class="form-group">
+					<label for="password">密碼</label>
+					<input type="password" id="password" name="password" placeholder="請輸入密碼" required>
+				</div>
+				<div class="form-group">
+					<div class="checkbox-group">
+						<input type="checkbox" id="remember" name="remember">
+						<label for="remember">記住我</label>
+					</div>
+					<a href="#" class="forgot-password">忘記密碼？</a>
+				</div>
+				<button type="submit" class="btn btn-primary btn-block">登入</button>
+			</form>
+        <div class="auth-footer">
+          <p>還沒有帳號？<a href="register.html">立即註冊</a></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-logo">
+          <h2>資許你安全</h2>
+          <p>沉浸式學習、資安教育</p>
+        </div>
+        <div class="footer-links">
+          <h3>快速導覽</h3>
+          <ul>
+            <li><a href="index.html">首頁</a></li>
+            <li><a href="index.html#about">關於我們</a></li>
+            <li><a href="index.html#services">服務</a></li>
+            <li><a href="register.html">註冊</a></li>
+            <li><a href="login.html">登入</a></li>
+          </ul>
+        </div>
+        <div class="footer-social">
+          <h3>關注我們</h3>
+          <div class="social-icons">
+            <a href="#" class="social-icon"><img src="/static/images/facebook.svg" alt="Facebook"></a>
+            <a href="#" class="social-icon"><img src="/static/images/twitter.svg" alt="Twitter"></a>
+            <a href="#" class="social-icon"><img src="/static/images/instagram.svg" alt="Instagram"></a>
+            <a href="#" class="social-icon"><img src="/static/images/linkedin.svg" alt="LinkedIn"></a>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2025 淡江資管. 保留所有權利.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/static/js/main.js"></script>
+  <script src="/static/js/auth.js"></script>
+</body>
+</html> 
