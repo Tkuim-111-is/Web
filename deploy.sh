@@ -1,24 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_DIR="/var/www/myapp"
-BRANCH="develop"
+APP_DIR="/var/www/Web"
 DENO_BIN="/home/deployer/.deno/bin/deno"
 
 cd "$APP_DIR"
 
-# 更新程式碼
-git fetch --all --prune
-git checkout "$BRANCH"
-git reset --hard "origin/$BRANCH"
+# 預熱 Deno 快取（不影響執行失敗時重啟）
+[ -x "$DENO_BIN" ] && $DENO_BIN cache -r server.ts || true
 
-# 可選：預熱快取（加速日後啟動）
-if [ -x "$DENO_BIN" ]; then
-  $DENO_BIN cache -r server.ts || true
-fi
-
-# 重新載入服務
 sudo systemctl daemon-reload || true
-sudo systemctl restart myapp.service
+sudo systemctl restart deno-web.service
 
-echo "Deployed and restarted at $(date)"
+echo "Restarted at $(date)"

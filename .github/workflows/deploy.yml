@@ -1,4 +1,4 @@
-name: Deploy (develop -> Ubuntu)
+name: Deploy (develop -> server via rsync)
 
 on:
   push:
@@ -8,20 +8,37 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout (for context)
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Add server to known_hosts
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+      # （可選）Deno 預建置，例如做型別檢查/bundle
+      - name: Deno cache (optional)
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+      - run: deno cache -r server.ts
 
-      - name: Deploy over SSH
+      # 用 rsync 同步檔案到伺服器（不需要伺服器 git）
+      - name: Rsync to server
+        uses: burnett01/rsync-deployments@7.0.1
+        with:
+          switches: -avz --delete --exclude='.git/' --exclude='.github/' --exclude='node_modules/' --exclude='tests/' --exclude='.env' --exclude='logs/'
+          path: ./
+          remote_path: /var/www/Web/
+          remote_host: ${{ secrets.SSH_HOST }}
+          remote_user: ${{ secrets.SSH_USER }}
+          remote_port: ${{ secrets.SSH_PORT }}
+          remote_key: ${{ secrets.SSH_KEY }}
+
+      # 重啟服務（或呼叫你剛剛的 deploy.sh）
+      - name: Restart service
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}    # 部署私鑰（PEM 內容）
+          key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
-            bash /var/www/myapp/deploy.sh
+            bash /var/www/Web/deploy.sh
+            # （可選）健康檢查：需要你的服務提供 /health
+            curl -fsS http://127.0.0.1:${DENO_PORT}/health
