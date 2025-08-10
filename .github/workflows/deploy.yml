@@ -15,7 +15,7 @@ jobs:
       - name: Deno cache (optional)
         uses: denoland/setup-deno@v1
         with:
-          deno-version: v1.x
+          deno-version: "v2.4.3"
       - run: deno cache -r server.ts
 
       # 用 rsync 同步檔案到伺服器（不需要伺服器 git）
