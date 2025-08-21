@@ -10,7 +10,7 @@ cd "$APP_DIR"
 [ -x "$DENO_BIN" ] && $DENO_BIN cache -r server.ts || true
 
 export XDG_RUNTIME_DIR=/run/user/$(id -u)
-systemctl --user daemon-reload || true
-systemctl --user restart deno-web.service
+systemctl daemon-reload || true
+systemctl restart deno-web.service
 
 echo "Restarted at $(date)"
