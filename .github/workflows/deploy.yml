@@ -39,6 +39,4 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
-            bash /var/www/Web/deploy.sh
-            # （可選）健康檢查：需要你的服務提供 /health
-            # curl -fsS http://127.0.0.1:${DENO_PORT}/health
+            bash /home/deployer/web/deploy.sh

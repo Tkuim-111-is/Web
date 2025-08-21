@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_DIR="/var/www/Web"
+APP_DIR="/home/deployer/web"
 DENO_BIN="/home/deployer/.deno/bin/deno"
 
 cd "$APP_DIR"
