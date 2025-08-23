@@ -1,0 +1,42 @@
+name: Deploy (develop -> server via rsync)
+
+on:
+  push:
+    branches: [ "develop" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # （可選）Deno 預建置，例如做型別檢查/bundle
+      - name: Deno cache (optional)
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: "v2.4.3"
+      - run: deno cache -r server.ts
+
+      # 用 rsync 同步檔案到伺服器（不需要伺服器 git）
+      - name: Rsync to server
+        uses: burnett01/rsync-deployments@7.0.1
+        with:
+          switches: -avz --delete --exclude='.git/' --exclude='.github/' --exclude='node_modules/' --exclude='tests/' --exclude='.env' --exclude='logs/'
+          path: ./
+          remote_path: /home/deployer/web/
+          remote_host: ${{ secrets.SSH_HOST }}
+          remote_user: ${{ secrets.SSH_USER }}
+          remote_port: ${{ secrets.SSH_PORT }}
+          remote_key: ${{ secrets.SSH_KEY }}
+
+      # 重啟服務（或呼叫你剛剛的 deploy.sh）
+      - name: Restart service
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            bash /home/deployer/web/deploy.sh
