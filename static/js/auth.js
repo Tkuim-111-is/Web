@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       // 發送註冊請求到Deno服務器
-      fetch('/api/register', {
+      fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      fetch('/api/login', {
+      fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

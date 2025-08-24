@@ -113,7 +113,7 @@
         // 取得學習歷程資料
         async function fetchLearnStatus() {
             try {
-                const res = await fetch('/api/learn_status', {
+                const res = await fetch('/api/profile/learn_status', {
                     headers: {
                         'Authorization': 'Bearer ' + token
                     }
