@@ -1,7 +1,7 @@
 import { Application, Router, send } from "https://deno.land/x/oak/mod.ts";
-import { registerRouter } from "./api/register.ts";
-import { loginRouter } from "./api/login.ts";
-import { learnStatusRouter } from "./api/learn_status.ts";
+import { registerRouter } from "./api/auth/register.ts";
+import { loginRouter } from "./api/auth/login.ts";
+import { learnStatusRouter } from "./api/profile/learn_status.ts";
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
 import { jwtVerify } from "https://deno.land/x/jose@v5.3.0/jwt/verify.ts";
 

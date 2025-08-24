@@ -24,7 +24,7 @@ if (!JWT_SECRET_RAW) {
 }
 const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_RAW); // 這一行很重要！
 
-loginRouter.post("/api/login", async (ctx) => {
+loginRouter.post("/api/auth/login", async (ctx) => {
   try {
     if (ctx.request.hasBody) {
       const { email, password } = ctx.state.body;
