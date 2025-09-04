@@ -53,11 +53,24 @@
           <div class="form-group">
             <div class="checkbox-group">
               <input type="checkbox" id="terms" name="terms" required>
-              <label for="terms">我已閱讀並同意<a href="#">服務條款</a>和<a href="#">隱私政策</a></label>
+              <label for="terms">我已閱讀並同意<a href="/tos.html" target="_blank">服務條款</a>和<a href="/tos.html" target="_blank">隱私政策</a></label>
             </div>
           </div>
           <button type="submit" class="btn btn-primary btn-block">註冊</button>
         </form>
+        
+        <!-- 分隔線 -->
+        <div class="auth-divider">
+          <span>或</span>
+        </div>
+        
+        <!-- Google 登入按鈕 -->
+        <div class="social-login">
+          <a href="/api/auth/google" class="btn btn-google btn-block">
+            <img src="/static/images/google.svg" alt="Google" class="social-icon">
+          </a>
+        </div>
+        
         <div class="auth-footer">
           <p>已有帳號？<a href="login.html">立即登入</a></p>
         </div>

@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>資許你安全｜服務條款</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <link rel="icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <style>
+    .tos-container {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 120px 20px 80px;
+    }
+    
+    .tos-header {
+      background-color: #fff;
+      border-radius: 10px;
+      box-shadow: var(--box-shadow);
+      padding: 40px;
+      margin-bottom: 30px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 30px;
+    }
+    
+    .tos-header h1 {
+      font-size: 32px;
+      margin: 0 0 15px;
+      color: var(--dark-color);
+    }
+    
+    .tos-header h1[data-lang] {
+      margin: 0 0 15px;
+    }
+    
+    .tos-header .subtitle {
+      color: var(--secondary-color);
+      font-size: 16px;
+      margin: 0;
+    }
+    
+    .meta {
+      margin-top: 15px;
+      color: var(--secondary-color);
+      font-size: 14px;
+    }
+    
+    .meta code {
+      background: var(--light-color);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      color: var(--primary-color);
+    }
+    
+    .toc {
+      margin-top: 20px;
+    }
+    
+    .toc[data-lang] {
+      margin-top: 15px;
+    }
+    
+    .toc a {
+      color: var(--primary-color);
+      text-decoration: none;
+      margin-right: 20px;
+      font-size: 14px;
+      transition: var(--transition);
+    }
+    
+    .toc a:hover {
+      text-decoration: underline;
+      color: var(--dark-color);
+    }
+    
+    .language-switcher {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 8px;
+      flex-shrink: 0;
+    }
+    
+    .language-switcher button {
+      border: 1px solid #ddd;
+      background: #fff;
+      color: var(--dark-color);
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: var(--transition);
+      white-space: nowrap;
+      min-width: 60px;
+      text-align: center;
+    }
+    
+    .language-switcher button.active {
+      background: var(--primary-color);
+      color: #fff;
+      border-color: var(--primary-color);
+    }
+    
+    .language-switcher button:hover {
+      background: var(--light-color);
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .language-switcher button.active:hover {
+      background: var(--primary-color);
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(74, 108, 247, 0.3);
+    }
+    
+    .tos-section {
+      background-color: #fff;
+      border-radius: 10px;
+      box-shadow: var(--box-shadow);
+      padding: 40px;
+      margin-bottom: 20px;
+    }
+    
+    .tos-section h2 {
+      margin-top: 0;
+      margin-bottom: 20px;
+      font-size: 24px;
+      color: var(--dark-color);
+    }
+    
+    .tos-section ul {
+      padding-left: 20px;
+      list-style: disc;
+    }
+    
+    .tos-section li {
+      margin: 10px 0;
+      line-height: 1.6;
+    }
+    
+    .notice {
+      font-size: 14px;
+      color: var(--secondary-color);
+      margin-top: 15px;
+      padding: 15px;
+      background: var(--light-color);
+      border-radius: 8px;
+      border-left: 4px solid var(--primary-color);
+    }
+    
+    .tos-footer {
+      background-color: #fff;
+      border-radius: 10px;
+      box-shadow: var(--box-shadow);
+      padding: 30px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      font-size: 14px;
+      color: var(--secondary-color);
+    }
+    
+    /* Language visibility */
+    [data-lang] { display: none; }
+    [data-lang].show { display: block; }
+    
+    /* Print styles */
+    @media print {
+      .header, .language-switcher, .toc { display: none !important; }
+      [data-lang] { display: block !important; break-inside: avoid; }
+      .tos-header, .tos-section, .tos-footer { 
+        box-shadow: none; 
+        border: 1px solid #ddd; 
+      }
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .tos-container {
+        padding: 100px 15px 60px;
+      }
+      
+      .tos-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+        padding: 30px 20px;
+      }
+      
+      .tos-header h1 {
+        font-size: 28px;
+      }
+      
+      .language-switcher {
+        align-self: center;
+        flex-shrink: 0;
+      }
+      
+      .toc a {
+        display: block;
+        margin: 8px 0;
+      }
+      
+      .tos-section {
+        padding: 30px 20px;
+      }
+      
+      .tos-footer {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+  <body>
+    <header class="header">
+      <div class="container">
+        <div class="logo">
+          <h1>資許你安全</h1>
+        </div>
+        <div class="main-buttons">
+          <ul>
+            <a href="/index.html#home">首頁</a>
+            <a href="/index.html#about">關於我們</a>
+            <a href="/index.html#services">服務</a>
+            <a href="/register.html">註冊</a>
+            <a href="/login.html">登入</a>
+          </ul>   
+        </div>
+      </div>
+    </header>
+
+    <div class="tos-container">
+      <header class="tos-header" role="banner">
+        <div>
+          <h1 data-lang="zh-Hant">服務條款</h1>
+          <h1 data-lang="en">Terms of Service</h1>
+          <p class="meta" data-lang="zh-Hant">
+            專題名稱：<code>資許你安全</code>
+            聯絡信箱：<code>service@surecurity.org</code>
+            生效日期：<code>2025-09-04</code>
+          </p>
+          <p class="meta" data-lang="en">
+            Project Name: <code>Surecurity</code>
+            Contact Email: <code>service@surecurity.org</code>
+            Effective Date: <code>2025-09-04</code>
+          </p>
+          <nav class="toc" aria-label="Sections" data-lang="zh-Hant">
+            <a href="#nature">網站性質</a>
+            <a href="#acceptable-use">使用規範</a>
+            <a href="#ip">知識產權</a>
+            <a href="#disclaimer">免責聲明</a>
+            <a href="#privacy">隱私保護</a>
+            <a href="#changes">條款修改</a>
+          </nav>
+          <nav class="toc" aria-label="Sections" data-lang="en">
+            <a href="#nature-en">Nature</a>
+            <a href="#acceptable-use-en">Acceptable Use</a>
+            <a href="#ip-en">Intellectual Property</a>
+            <a href="#disclaimer-en">Disclaimer</a>
+            <a href="#privacy-en">Privacy</a>
+            <a href="#changes-en">Changes</a>
+          </nav>
+        </div>
+        <div class="language-switcher" aria-label="Language selector">
+          <button type="button" data-lang-btn="zh-Hant" aria-pressed="true">中文</button>
+          <button type="button" data-lang-btn="en">English</button>
+        </div>
+      </header>
+
+      <!-- Chinese Version -->
+      <section class="tos-section" id="nature" data-lang="zh-Hant">
+        <h2>1. 網站性質</h2>
+        <p>本網站為大學畢業專題成果展示，僅供學術研究與學習參考之用。本網站提供沉浸式資安教育學習平台，結合生成式AI技術，幫助使用者快速學習資安知識。</p>
+        <div class="notice">提示：本網站包含註冊登入、學習歷程追蹤、測驗評估等功能，所有資料僅用於學術研究與專題展示。</div>
+      </section>
+
+      <section class="tos-section" id="acceptable-use" data-lang="zh-Hant">
+        <h2>2. 使用規範</h2>
+        <ul>
+          <li>使用者不得利用本網站進行任何非法或有害的行為。</li>
+          <li>使用者不得破壞、干擾或濫用網站功能或資源。</li>
+          <li>使用者應保持禮儀，禁止散播不當或侵權內容。</li>
+          <li>使用者註冊時應提供真實有效的電子郵件地址。</li>
+          <li>禁止使用自動化工具或機器人程式干擾網站正常運作。</li>
+        </ul>
+      </section>
+
+      <section class="tos-section" id="ip" data-lang="zh-Hant">
+        <h2>3. 知識產權</h2>
+        <ul>
+          <li>除特別註明外，本網站之內容（文字、圖片、程式碼等）皆屬本專題小組所有。</li>
+          <li>未經授權，不得複製、修改、散播或作商業使用。</li>
+          <li>第三方資源之著作權歸原權利人所有，並依原授權條款使用。</li>
+          <li>使用者上傳或提供的內容，其著作權仍歸使用者所有，但同意本網站在學術研究範圍內使用。</li>
+        </ul>
+      </section>
+
+      <section class="tos-section" id="disclaimer" data-lang="zh-Hant">
+        <h2>4. 免責聲明</h2>
+        <ul>
+          <li>本網站內容僅供參考，不保證其正確性、完整性或即時性。</li>
+          <li>使用者因依賴本網站內容而致生之任何損失，本團隊概不負責。</li>
+          <li>本網站可能隨時暫停、關閉或發生錯誤，本團隊不承擔任何責任。</li>
+          <li>本網站不對第三方服務（如Google登入）的可用性或安全性承擔責任。</li>
+        </ul>
+      </section>
+
+      <section class="tos-section" id="privacy" data-lang="zh-Hant">
+        <h2>5. 隱私保護</h2>
+        <ul>
+          <li>本網站會收集使用者註冊時提供的基本資訊（電子郵件、姓名等）。</li>
+          <li>所有收集的資料僅用於學術專題展示和學習歷程記錄，不會用於商業用途。</li>
+          <li>本網站使用安全的加密技術保護使用者資料。</li>
+          <li>使用者可隨時要求刪除其個人資料。</li>
+          <li>本網站支援Google第三方登入，相關隱私政策請參考Google隱私權政策。</li>
+        </ul>
+      </section>
+
+      <section class="tos-section" id="changes" data-lang="zh-Hant">
+        <h2>6. 條款修改</h2>
+        <p>本團隊保留隨時修改或更新本服務條款之權利，修改後條款自公告時立即生效。重大修改將透過網站公告或電子郵件通知使用者。</p>
+      </section>
+
+      <!-- English Version -->
+      <section class="tos-section" id="nature-en" data-lang="en">
+        <h2>1. Nature of the Website</h2>
+        <p>This website is a university graduation project intended solely for academic demonstration and learning purposes. It provides an immersive cybersecurity education platform combined with generative AI technology to help users quickly learn cybersecurity knowledge.</p>
+        <div class="notice">Note: This website includes registration, login, learning progress tracking, and assessment features. All data is used exclusively for academic research and project demonstration.</div>
+      </section>
+
+      <section class="tos-section" id="acceptable-use-en" data-lang="en">
+        <h2>2. Acceptable Use</h2>
+        <ul>
+          <li>Users shall not use this website for any illegal or harmful activities.</li>
+          <li>Users shall not damage, interfere with, or misuse the website's functions or resources.</li>
+          <li>Users must behave respectfully and refrain from posting inappropriate or infringing content.</li>
+          <li>Users should provide valid email addresses during registration.</li>
+          <li>Use of automated tools or bots to interfere with normal website operation is prohibited.</li>
+        </ul>
+      </section>
+
+      <section class="tos-section" id="ip-en" data-lang="en">
+        <h2>3. Intellectual Property</h2>
+        <ul>
+          <li>Unless otherwise stated, all content on this website (including text, images, and code) is owned by the project team.</li>
+          <li>No reproduction, modification, distribution, or commercial use is permitted without prior authorization.</li>
+          <li>Third-party resources remain the property of their respective rights holders and are used under their original license terms.</li>
+          <li>User-uploaded or provided content remains the property of the user, but users agree to allow this website to use it within the scope of academic research.</li>
+        </ul>
+      </section>
+
+      <section class="tos-section" id="disclaimer-en" data-lang="en">
+        <h2>4. Disclaimer</h2>
+        <ul>
+          <li>The content is for reference only and is not guaranteed to be accurate, complete, or up to date.</li>
+          <li>The project team shall not be liable for any loss or damage arising from reliance on the content.</li>
+          <li>The website may be suspended, closed, or experience errors at any time without liability to the project team.</li>
+          <li>This website is not responsible for the availability or security of third-party services (such as Google login).</li>
+        </ul>
+      </section>
+
+      <section class="tos-section" id="privacy-en" data-lang="en">
+        <h2>5. Privacy</h2>
+        <ul>
+          <li>This website collects basic information provided by users during registration (email, name, etc.).</li>
+          <li>All collected data is used solely for academic project demonstration and learning progress tracking, not for commercial purposes.</li>
+          <li>This website uses secure encryption technology to protect user data.</li>
+          <li>Users may request deletion of their personal data at any time.</li>
+          <li>This website supports Google third-party login. Please refer to Google's Privacy Policy for related privacy policies.</li>
+        </ul>
+      </section>
+
+      <section class="tos-section" id="changes-en" data-lang="en">
+        <h2>6. Changes to Terms</h2>
+        <p>The project team reserves the right to modify or update these Terms of Service at any time, with changes taking effect immediately upon posting. Significant changes will be notified to users through website announcements or email.</p>
+      </section>
+
+    <script src="/static/js/main.js"></script>
+
+    <script>
+      (function() {
+        const html = document.documentElement;
+        const buttons = document.querySelectorAll('[data-lang-btn]');
+        const blocks = document.querySelectorAll('[data-lang]');
+        const saved = localStorage.getItem('tos_lang');
+        const defaultLang = saved || (navigator.language && navigator.language.startsWith('zh') ? 'zh-Hant' : 'en');
+
+        function setLang(lang) {
+          html.setAttribute('lang', lang);
+          blocks.forEach(el => el.classList.toggle('show', el.getAttribute('data-lang') === lang));
+          buttons.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-lang-btn') === lang));
+          buttons.forEach(btn => btn.setAttribute('aria-pressed', btn.classList.contains('active') ? 'true' : 'false'));
+          localStorage.setItem('tos_lang', lang);
+        }
+
+        buttons.forEach(btn => btn.addEventListener('click', () => setLang(btn.getAttribute('data-lang-btn'))));
+        setLang(defaultLang);
+      })();
+    </script>
+  </body>
+</html>
