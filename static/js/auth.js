@@ -1,5 +1,18 @@
 // 等待DOM加載完成
 document.addEventListener('DOMContentLoaded', () => {
+  // 檢查 URL 中是否有 Google OAuth 回調的 token
+  const urlParams = new URLSearchParams(globalThis.location.search);
+  const token = urlParams.get('token');
+  const loginSuccess = urlParams.get('login_success');
+  
+  if (token && loginSuccess === 'true') {
+    // 儲存 token 到 localStorage
+    localStorage.setItem('token', token);
+    showMessage('Google 登入成功！', 'success');
+    
+    // 清除 URL 參數並刷新頁面
+    globalThis.history.replaceState({}, document.title, globalThis.location.pathname);
+  }
   // 註冊表單處理
   const registerForm = document.getElementById('registerForm');
   if (registerForm) {
@@ -66,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // 獲取表單數據
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
-      const remember = document.getElementById('remember')?.checked || false;
+      const _remember = document.getElementById('remember')?.checked || false;
       
       // 表單驗證
       if (!email || !password) {
@@ -89,12 +102,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
           showMessage('登入成功！正在跳轉到首頁...', 'success');
           setTimeout(() => {
-            window.location.href = '/profile/index_login.html';
+            globalThis.location.href = '/profile/index_login.html';
           }, 1000);
         } else {
           showMessage(data.message || '登入失敗，請稍後再試', 'error');
           setTimeout(() => {
-            window.location.href = '/login.html';
+            globalThis.location.href = '/login.html';
           }, 1000);
         }
       })
