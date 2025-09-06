@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>學習歷程分析</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="icon" href="/favicon.ico" />
@@ -14,19 +17,19 @@
 <body>
     <header class="header">
         <div class="container">
-            <div class="logo">
-                <h1>學習歷程分析</h1>
-            </div>
-            <div class="main-buttons">
-                <ul>
-                    <a href="/profile/index_login.html#home">首頁</a>
-                    <a href="/profile/index_login.html#about">關於我們</a>
-                    <a href="/profile/index_login.html#services">服務</a>
-                    <a href="/profile/learn_status.html">學習歷程分析</a>
-                    <a href="/profile/exam.html">測驗</a>
-                    <a href="/logout">登出</a>
-                </ul>
-            </div>
+          <div class="logo">
+            <h1><a href="index.html#home">資許你安全</a></h1>
+          </div>
+          <nav class="main-nav" role="navigation" aria-label="主要導航">
+            <ul>
+                <li><a href="index.html#home" class="active" aria-current="page">首頁</a></li>
+                <li><a href="index.html#about">關於我們</a></li>
+                <li><a href="index.html#services">服務</a></li>
+                <li><a href="/profile/learn_status.html">學習歷程分析</a></li>
+                <li><a href="/profile/exam.html">測驗</a></li>
+                <li><a href="/logout">登出</a></li>
+            </ul>
+          </nav>
         </div>
     </header>
 
