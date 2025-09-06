@@ -21,7 +21,7 @@ if (!JWT_SECRET_RAW) {
 const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_RAW);
 
 // 新增學習歷程
-learnStatusRouter.post("/api/learn_status", async (ctx) => {
+learnStatusRouter.post("/api/profile/learn_status", async (ctx) => {
   try {
     if (ctx.request.hasBody) {
       const { user_email, context_id, err_count } = ctx.state.body;
@@ -46,7 +46,7 @@ learnStatusRouter.post("/api/learn_status", async (ctx) => {
 });
 
 // 查詢學習歷程
-learnStatusRouter.get("/api/learn_status", async (ctx) => {
+learnStatusRouter.get("/api/profile/learn_status", async (ctx) => {
   const user = ctx.state.user;
   if (!user) {
     ctx.response.status = 401;

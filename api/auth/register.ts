@@ -21,7 +21,7 @@ if (!JWT_SECRET_RAW) {
 }
 const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_RAW);
 
-registerRouter.post("/api/register", async (ctx) => {
+registerRouter.post("/api/auth/register", async (ctx) => {
   try {
     // 獲取請求體 - 修正獲取方式
     if (ctx.request.hasBody) {

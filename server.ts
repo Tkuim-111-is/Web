@@ -1,7 +1,8 @@
 import { Application, Router, send } from "https://deno.land/x/oak/mod.ts";
-import { registerRouter } from "./api/register.ts";
-import { loginRouter } from "./api/login.ts";
-import { learnStatusRouter } from "./api/learn_status.ts";
+import { registerRouter } from "./api/auth/register.ts";
+import { loginRouter } from "./api/auth/login.ts";
+import { googleOAuthRouter } from "./api/auth/google_oauth.ts";
+import { learnStatusRouter } from "./api/profile/learn_status.ts";
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
 import { jwtVerify } from "https://deno.land/x/jose@v5.3.0/jwt/verify.ts";
 
@@ -22,9 +23,9 @@ app.use(async (ctx, next) => {
     try {
       const body = await ctx.request.body.json();
       ctx.state.body = body;
-    } catch (error) {
+    } catch (error: unknown) {
       ctx.response.status = 400;
-      ctx.response.body = { success: false, message: "無效的 JSON 格式", error: error.message };
+      ctx.response.body = { success: false, message: "無效的 JSON 格式", error: error instanceof Error ? error.message : "未知錯誤" };
       console.error(`[${new Date().toISOString()}] [ERROR] [server.ts] Invalid JSON Format ${ctx.request.url.pathname}`);
       return;
     }
@@ -83,6 +84,9 @@ app.use(registerRouter.allowedMethods());
 app.use(loginRouter.routes());
 app.use(loginRouter.allowedMethods());
 
+app.use(googleOAuthRouter.routes());
+app.use(googleOAuthRouter.allowedMethods());
+
 app.use(learnStatusRouter.routes());
 app.use(learnStatusRouter.allowedMethods());
 
@@ -137,7 +141,7 @@ router.get("/(.*)", async (ctx) => {
       root: `${Deno.cwd()}/views`,
       index: "index.html",
     });
-  } catch (error) {
+  } catch (_error) {
     ctx.response.status = 404;
     ctx.response.body = "頁面不存在";
     console.error(`[${new Date().toISOString()}] [ERROR] [server.ts] 404 Not Found for ${ctx.request.url.pathname}`);
@@ -149,7 +153,7 @@ router.get("/(.*)", async (ctx) => {
 // ==========================
 app.use(router.routes());
 app.use(router.allowedMethods());
-const port = Deno.env.get("PORT");
+const port = parseInt(Deno.env.get("PORT") ?? "8000");
 
 console.log(`[${new Date().toISOString()}] [INFO] [server.ts] Server is running at http://localhost:${port}`);
 await app.listen({ port });
