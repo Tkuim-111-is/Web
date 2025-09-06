@@ -34,11 +34,11 @@
         <div class="container">
             <br><br><br><br>
             <div class="chart-container">
-                <h2>各關卡錯誤次數</h2>
+                <h2>各情境錯誤次數</h2>
                 <canvas id="errorCountChart"></canvas>
             </div>
             <div class="chart-container">
-                <h2>各關卡學習時間</h2>
+                <h2>各情境學習時間</h2>
                 <canvas id="timeChart"></canvas>
             </div>
             <div class="chart-container">
@@ -129,22 +129,64 @@
             return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
         }
 
+        // Context ID 格式化函數：兩位數轉換為帶連字號格式
+        function formatContextId(contextId) {
+            const contextStr = contextId.toString();
+            // 檢查是否為兩位數
+            if (contextStr.length === 2 && /^\d{2}$/.test(contextStr)) {
+                return `${contextStr[0]}-${contextStr[1]}`;
+            }
+            return contextStr;
+        }
+
+        // 日期格式化函數：將 MySQL DATETIME 轉換為年月日格式
+        function formatDate(dateString) {
+            if (!dateString) return '未知時間';
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('zh-TW', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                });
+            } catch (e) {
+                return '無效時間';
+            }
+        }
+
         // 根據資料渲染圖表
         function renderCharts(data) {
             // context_id 代表關卡，err_count 代表錯誤次數，time_record 代表學習時間
             const contextLabels = [...new Set(data.map(row => row.context_id))];
-            const learningTimes = contextLabels.map(label =>
-                data.filter(row => row.context_id === label).reduce((sum, row) => sum + (row.time_record || 0), 0)
-            );
-            const errorRates = contextLabels.map(label =>
-                data.filter(row => row.context_id === label).reduce((sum, row) => sum + row.err_count, 0)
-            );
+            const formattedContextLabels = contextLabels.map(label => formatContextId(label));
+            
+            // 為每個 context 準備資料和完成時間
+            const contextData = contextLabels.map(label => {
+                const contextRows = data.filter(row => row.context_id === label);
+                const totalTime = contextRows.reduce((sum, row) => sum + (row.time_record || 0), 0);
+                const totalErrors = contextRows.reduce((sum, row) => sum + row.err_count, 0);
+                // 取最新的完成時間
+                const latestCreatedAt = contextRows.reduce((latest, row) => {
+                    return new Date(row.created_at) > new Date(latest) ? row.created_at : latest;
+                }, contextRows[0]?.created_at || '');
+                
+                return {
+                    contextId: label,
+                    formattedId: formatContextId(label),
+                    totalTime,
+                    totalErrors,
+                    completedAt: latestCreatedAt
+                };
+            });
+            
+            const learningTimes = contextData.map(item => item.totalTime);
+            const errorRates = contextData.map(item => item.totalErrors);
 
             // 各關卡錯誤次數圖表
             new Chart(document.getElementById('errorCountChart'), {
                 type: 'bar',
                 data: {
-                    labels: contextLabels,
+                    labels: formattedContextLabels,
                     datasets: [{
                         label: '錯誤次數',
                         data: errorRates,
@@ -157,7 +199,25 @@
                     responsive: true,
                     maintainAspectRatio: true,
                     plugins: {
-                        legend: { display: true, position: 'bottom' }
+                        legend: { display: true, position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                title: function(context) {
+                                    const index = context[0].dataIndex;
+                                    const contextInfo = contextData[index];
+                                    return `情境${contextInfo.formattedId}`;
+                                },
+                                label: function(context) {
+                                    const index = context.dataIndex;
+                                    const contextInfo = contextData[index];
+                                    const completedDate = formatDate(contextInfo.completedAt);
+                                    return [
+                                        `錯誤次數: ${context.parsed.y}`,
+                                        `完成時間: ${completedDate}`
+                                    ];
+                                }
+                            }
+                        }
                     },
                     scales: {
                         y: {
@@ -171,7 +231,7 @@
             new Chart(document.getElementById('timeChart'), {
                 type: 'bar',
                 data: {
-                    labels: contextLabels,
+                    labels: formattedContextLabels,
                     datasets: [{
                         label: '學習時間 (秒)',
                         data: learningTimes,
@@ -187,9 +247,20 @@
                         legend: { display: true, position: 'bottom' },
                         tooltip: {
                             callbacks: {
+                                title: function(context) {
+                                    const index = context[0].dataIndex;
+                                    const contextInfo = contextData[index];
+                                    return `情境${contextInfo.formattedId}`;
+                                },
                                 label: function(context) {
+                                    const index = context.dataIndex;
+                                    const contextInfo = contextData[index];
                                     const seconds = context.parsed.y;
-                                    return `學習時間: ${formatTime(seconds)} (${seconds}秒)`;
+                                    const completedDate = formatDate(contextInfo.completedAt);
+                                    return [
+                                        `學習時間: ${formatTime(seconds)} (${seconds}秒)`,
+                                        `完成時間: ${completedDate}`
+                                    ];
                                 }
                             }
                         }
@@ -219,7 +290,7 @@
             const colors = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#84cc16'];
             
             const scatterDatasets = contexts.map((context, index) => ({
-                label: `Context ${context}`,
+                label: `Context ${formatContextId(context)}`,
                 data: scatterData.filter(point => point.context_id === context),
                 backgroundColor: colors[index % colors.length],
                 borderColor: colors[index % colors.length],
@@ -242,10 +313,28 @@
                         },
                         tooltip: {
                             callbacks: {
+                                title: function(context) {
+                                    const datasetIndex = context[0].datasetIndex;
+                                    const dataIndex = context[0].dataIndex;
+                                    const dataset = scatterDatasets[datasetIndex];
+                                    const dataPoint = dataset.data[dataIndex];
+                                    const contextInfo = contextData.find(item => item.contextId === dataPoint.context_id);
+                                    return `情境${contextInfo ? contextInfo.formattedId : dataPoint.context_id}`;
+                                },
                                 label: function(context) {
+                                    const datasetIndex = context.datasetIndex;
+                                    const dataIndex = context.dataIndex;
+                                    const dataset = scatterDatasets[datasetIndex];
+                                    const dataPoint = dataset.data[dataIndex];
+                                    const contextInfo = contextData.find(item => item.contextId === dataPoint.context_id);
                                     const point = context.parsed;
                                     const timeFormatted = formatTime(point.y);
-                                    return `錯誤次數: ${point.x}, 學習時間: ${timeFormatted} (${point.y}秒)`;
+                                    const completedDate = formatDate(contextInfo ? contextInfo.completedAt : '');
+                                    return [
+                                        `錯誤次數: ${point.x}`,
+                                        `學習時間: ${timeFormatted} (${point.y}秒)`,
+                                        `完成時間: ${completedDate}`
+                                    ];
                                 }
                             }
                         }
