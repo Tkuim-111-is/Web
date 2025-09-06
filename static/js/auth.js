@@ -121,6 +121,35 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   
+  // 密碼顯示/隱藏切換功能
+  const passwordToggles = document.querySelectorAll('.password-toggle');
+  if (passwordToggles.length > 0) {
+    passwordToggles.forEach(toggle => {
+      toggle.addEventListener('click', function() {
+        const targetId = this.getAttribute('data-target');
+        const passwordInput = document.getElementById(targetId);
+        const eyeIcon = this.querySelector('.eye-icon');
+        const eyeOffIcon = this.querySelector('.eye-off-icon');
+        
+        if (passwordInput && eyeIcon && eyeOffIcon) {
+          if (passwordInput.type === 'password') {
+            // 顯示密碼
+            passwordInput.type = 'text';
+            eyeIcon.style.display = 'none';
+            eyeOffIcon.style.display = 'block';
+            this.setAttribute('aria-label', '隱藏密碼');
+          } else {
+            // 隱藏密碼
+            passwordInput.type = 'password';
+            eyeIcon.style.display = 'block';
+            eyeOffIcon.style.display = 'none';
+            this.setAttribute('aria-label', '顯示密碼');
+          }
+        }
+      });
+    });
+  }
+  
   // 社交登入按鈕
   const socialButtons = document.querySelectorAll('.btn-social');
   if (socialButtons.length > 0) {
