@@ -159,22 +159,6 @@
   height: 24px;
 }
 
-.btn-google {
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.btn.btn-google.btn-block {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.btn-google:hover {
-  background-color: #f8f9fa;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-}
-
 .btn-facebook {
   background-color: #3b5998;
   color: #fff;
