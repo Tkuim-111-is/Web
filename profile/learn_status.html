@@ -37,6 +37,14 @@
                 <h2>各關卡錯誤次數</h2>
                 <canvas id="errorCountChart"></canvas>
             </div>
+            <div class="chart-container">
+                <h2>各關卡學習時間</h2>
+                <canvas id="timeChart"></canvas>
+            </div>
+            <div class="summary-container">
+                <h2>學習總結</h2>
+                <p id="summary-text">載入中...</p>
+            </div>
         </div>
     </section>
 
@@ -110,21 +118,27 @@
             }
         }
 
+        // 時間格式化函數：秒 -> 分:秒
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+
         // 根據資料渲染圖表
         function renderCharts(data) {
-
-            // context_id 代表關卡，err_count 代表錯誤次數
+            // context_id 代表關卡，err_count 代表錯誤次數，time_record 代表學習時間
             const contextLabels = [...new Set(data.map(row => row.context_id))];
             const learningTimes = contextLabels.map(label =>
-                data.filter(row => row.context_id === label).reduce((sum, row) => sum + (row.learning_time || 0), 0)
+                data.filter(row => row.context_id === label).reduce((sum, row) => sum + (row.time_record || 0), 0)
             );
             const errorRates = contextLabels.map(label =>
                 data.filter(row => row.context_id === label).reduce((sum, row) => sum + row.err_count, 0)
             );
 
-            // 各關卡錯誤率
+            // 各關卡錯誤次數圖表
             new Chart(document.getElementById('errorCountChart'), {
-                type: 'bar', // 長條圖
+                type: 'bar',
                 data: {
                     labels: contextLabels,
                     datasets: [{
@@ -132,9 +146,7 @@
                         data: errorRates,
                         backgroundColor: '#f43f5e',
                         borderColor: '#b91c1c',
-                        borderWidth: 2,
-                        fill: false,
-                        tension: 0.4
+                        borderWidth: 2
                     }]
                 },
                 options: {
@@ -150,15 +162,57 @@
                     }
                 }
             });
+
+            // 各關卡學習時間圖表
+            new Chart(document.getElementById('timeChart'), {
+                type: 'bar',
+                data: {
+                    labels: contextLabels,
+                    datasets: [{
+                        label: '學習時間 (秒)',
+                        data: learningTimes,
+                        backgroundColor: '#3b82f6',
+                        borderColor: '#1d4ed8',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: true, position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const seconds = context.parsed.y;
+                                    return `學習時間: ${formatTime(seconds)} (${seconds}秒)`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatTime(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
         }
 
         // 更新學習總結
         function updateSummary(data) {
-            const totalTime = data.reduce((sum, row) => sum + (row.learning_time || 0), 0);
+            const totalTimeSeconds = data.reduce((sum, row) => sum + (row.time_record || 0), 0);
             const totalErr = data.reduce((sum, row) => sum + row.err_count, 0);
             const averageErrorRate = data.length > 0 ? (totalErr / data.length).toFixed(2) : 0;
+            const totalTimeFormatted = formatTime(totalTimeSeconds);
+            
             document.getElementById('summary-text').innerText =
-                `你總共花了 ${totalTime} 分鐘學習，平均錯誤次數為 ${averageErrorRate}。`;
+                `你總共花了 ${totalTimeFormatted} 學習，平均錯誤次數為 ${averageErrorRate}。`;
         }
 
         // 初始化
