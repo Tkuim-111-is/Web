@@ -102,7 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
           showMessage('登入成功！正在跳轉到首頁...', 'success');
           setTimeout(() => {
-            globalThis.location.href = '/profile/index_login.html';
+            globalThis.location.href = '/profile/index.html';
           }, 1000);
         } else {
           showMessage(data.message || '登入失敗，請稍後再試', 'error');
