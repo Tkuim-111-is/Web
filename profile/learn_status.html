@@ -33,28 +33,10 @@
     <section id="learning-analysis" class="learning-analysis">
         <div class="container">
             <br><br><br><br>
-            <!--
-            <div class="chart-container">
-                <h2>各關卡學習時間</h2>
-                <canvas id="learningTimeChart"></canvas>
-            </div>
-            -->
             <div class="chart-container">
                 <h2>各關卡錯誤次數</h2>
                 <canvas id="errorCountChart"></canvas>
             </div>
-            <!--
-            <div class="chart-container">
-                <h2>整體學習概況</h2>
-                <canvas id="overviewChart"></canvas>
-            </div>
-
-            <div class="summary-box">
-                <h1>學習總結</h1>
-                <p id="summary-text">載入中...</p>
-                <p>繼續保持這樣的學習熱情，你會越來越進步！</p>
-            </div>
-            -->
         </div>
     </section>
 
@@ -80,9 +62,6 @@
                     <h3>關注我們</h3>
                     <div class="social-icons">
                         <a href="https://github.com/Tkuim-111-is/Surecurity" class="social-icon"><img src="/static/images/github-mark.svg" alt="Github"></a>
-                <!--    <a href="#" class="social-icon"><img src="/static/images/twitter.svg" alt="Twitter"></a>
-                        <a href="#" class="social-icon"><img src="/static/images/instagram.svg" alt="Instagram"></a>
-                        <a href="#" class="social-icon"><img src="/static/images/linkedin.svg" alt="LinkedIn"></a> -->
                     </div>
                 </div>
             </div>
@@ -171,56 +150,6 @@
                     }
                 }
             });
-
-            /*
-            // 各關卡學習時間
-            new Chart(document.getElementById('learningTimeChart'), {
-                type: 'line',
-                data: {
-                    labels: contextLabels,
-                    datasets: [{
-                        label: '學習時間 (分鐘)',
-                        data: learningTimes,
-                        backgroundColor: '#34d399',
-                        borderColor: '#065f46',
-                        borderWidth: 2,
-                        fill: false,
-                        tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    plugins: {
-                        legend: { display: true, position: 'bottom' }
-                    }
-                }
-            });
-
-            // 整體學習概況（正確/錯誤比例）
-            const totalErr = errorRates.reduce((a, b) => a + b, 0);
-            const total = data.length;
-            const correct = total > 0 ? total - totalErr : 0;
-            new Chart(document.getElementById('overviewChart'), {
-                type: 'pie',
-                data: {
-                    labels: ['正確', '錯誤'],
-                    datasets: [{
-                        label: '答題比例',
-                        data: [correct, totalErr],
-                        backgroundColor: ['#3b82f6', '#ef4444'],
-                        hoverOffset: 10
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    plugins: {
-                        legend: { display: true, position: 'bottom' }
-                    }
-                }
-            });
-            */
         }
 
         // 更新學習總結
