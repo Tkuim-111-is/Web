@@ -1,7 +1,7 @@
 import { Router } from "https://deno.land/x/oak/mod.ts";
 import { Client } from "https://deno.land/x/mysql/mod.ts";
-// JWT 相關功能暫時不使用，保留以備未來擴展
-// import { create, verify, getNumericDate } from "https://deno.land/x/djwt@v2.8/mod.ts";
+// JWT 功能保留以備未來使用（如 token 刷新、自定義驗證等）
+import { create as _create, verify as _verify, getNumericDate as _getNumericDate } from "https://deno.land/x/djwt@v2.8/mod.ts";
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
 
 // 讀取資料庫設定
@@ -15,12 +15,11 @@ const dbConfig = {
 const client = await new Client().connect(dbConfig);
 
 export const learnStatusRouter = new Router();
-// JWT 相關設定暫時不使用，保留以備未來擴展
-// const JWT_SECRET_RAW = Deno.env.get("JWT_SECRET");
-// if (!JWT_SECRET_RAW) {
-//   throw new Error("JWT_SECRET 未設定");
-// }
-// const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_RAW);
+const JWT_SECRET_RAW = Deno.env.get("JWT_SECRET");
+if (!JWT_SECRET_RAW) {
+  throw new Error("JWT_SECRET 未設定");
+}
+const _JWT_SECRET = new TextEncoder().encode(JWT_SECRET_RAW);
 
 // 新增學習歷程
 learnStatusRouter.post("/api/profile/learn_status", async (ctx) => {
@@ -33,12 +32,9 @@ learnStatusRouter.post("/api/profile/learn_status", async (ctx) => {
         return;
       }
       
-      // 自動生成 time_stamp (當前時間戳，以秒為單位)
-      const time_stamp = Math.floor(Date.now() / 1000);
-      
       await client.execute(
-        "INSERT INTO learn_status (user_email, context_id, err_count, time_record, time_stamp) VALUES (?, ?, ?, ?, ?)",
-        [user_email, context_id, err_count, time_record, time_stamp]
+        "INSERT INTO learn_status (user_email, context_id, err_count, time_record) VALUES (?, ?, ?, ?)",
+        [user_email, context_id, err_count, time_record]
       );
       ctx.response.body = { success: true };
     } else {
@@ -60,7 +56,7 @@ learnStatusRouter.get("/api/profile/learn_status", async (ctx) => {
     return;
   }
   const rows = await client.query(
-    "SELECT context_id, err_count, time_record, time_stamp FROM learn_status WHERE user_email = ? ORDER BY context_id",
+    "SELECT context_id, err_count, time_record, created_at FROM learn_status WHERE user_email = ? ORDER BY context_id",
     [user.email]
   );
   console.log(`[${new Date().toISOString()}] [INFO] [learn_status.ts] user_email: ${user.email}, rows: ${JSON.stringify(rows)}`);
