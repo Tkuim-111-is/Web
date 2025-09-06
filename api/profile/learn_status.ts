@@ -5,10 +5,10 @@ import "https://deno.land/std@0.224.0/dotenv/load.ts";
 
 // 讀取資料庫設定
 const dbConfig = {
-  hostname: Deno.env.get("DB_HOST") ?? "localhost",
-  username: Deno.env.get("DB_USER") ?? "root",
+  hostname: Deno.env.get("DB_HOST") ?? "",
+  username: Deno.env.get("DB_USER") ?? "",
   password: Deno.env.get("DB_PASS") ?? "",
-  db: Deno.env.get("DB_NAME") ?? "test_db",
+  db: Deno.env.get("DB_NAME") ?? "",
 };
 
 const client = await new Client().connect(dbConfig);
