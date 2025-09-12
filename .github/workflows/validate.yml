@@ -11,13 +11,6 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install Vault CLI
-        run: |
-            curl -L -o vault.zip https://releases.hashicorp.com/vault/1.19.5/vault_1.19.5_linux_amd64.zip
-            unzip vault.zip
-            sudo mv vault /usr/local/bin/
-            vault --version
-
       - name: Set VAULT_ADDR
         run: echo "VAULT_ADDR=${{ secrets.VAULT_ADDR }}" >> $GITHUB_ENV
 
