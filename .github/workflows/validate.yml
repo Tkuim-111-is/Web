@@ -1,0 +1,26 @@
+name: Validate Deployability on PR
+
+on:
+  pull_request:
+    branches: [ "develop" ]
+
+jobs:
+  validate-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Deno cache
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: "v2.4.4"
+      - run: deno cache -r server.ts
+
+      - name: Validate Vault access
+        run: |
+          export VAULT_TOKEN=$(vault write -format=json auth/approle/login \
+            role_id=${{ secrets.VAULT_ROLE_ID }} \
+            secret_id=${{ secrets.VAULT_SECRET_ID }} | jq -r '.auth.client_token')
+          
+          vault read ssh/roles/deployer-role
