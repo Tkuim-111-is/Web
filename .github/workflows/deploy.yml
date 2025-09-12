@@ -1,50 +1,70 @@
-name: Deploy (develop -> server via rsync)
+name: Deploy (self-hosted + Vault SSH cert + rsync)
 
 on:
   push:
-    branches: [ "develop" ]
+    branches: ["develop"]
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   deploy:
-    runs-on: [self-hosted, linux, X64]
-    
+    runs-on: [self-hosted, Linux, X64, deploy]
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v4
-    
-    - name: Get Vault Token and SSH Certificate
-      id: vault-ssh
-      run: |
-        export VAULT_TOKEN=$(vault write -format=json auth/approle/login \
-          role_id=${{ secrets.VAULT_ROLE_ID }} \
-          secret_id=${{ secrets.VAULT_SECRET_ID }} | jq -r '.auth.client_token')
-        
-        vault write -format=json ssh/creds/deployer-role \
-          public_key=@/home/runner/.ssh/id_rsa.pub \
-          > signed_key.json
-          
-        jq -r '.data.signed_key' signed_key.json > id_rsa-cert.pub
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-    - name: Set up SSH Key and Certificate
-      run: |
-        eval $(ssh-agent -s)
-        
-        echo "${{ secrets.SSH_KEY }}" | ssh-add -
-        ssh-add id_rsa-cert.pub
+      - name: Login to Vault (OIDC)
+        uses: hashicorp/vault-action@v3
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: jwt
+          path: jwt
+          role: gha-repo-deploy
+          exportToken: true
 
-    - name: Sync code to server with rsync
-      run: |
-        rsync -avz \
-          --delete \
-          -e "ssh -o StrictHostKeyChecking=no" \
-          --exclude='.git/' \
-          --exclude='.github/' \
-          --exclude='node_modules/' \
-          --exclude='tests/' \
-          --exclude='.env' \
-          --exclude='logs/' \
-          ./ deployer@${{ secrets.SSH_HOST }}:/home/deployer/web/
+      - name: Get short-lived SSH certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v vault >/dev/null || { echo "Vault CLI not found on runner"; exit 1; }
+          ssh-keygen -t ed25519 -N "" -f key
+          vault write -field=signed_key ssh/sign/gha-deploy \
+            public_key=@key.pub ttl=60s > key-cert.pub
+          ssh-keygen -L -f key-cert.pub
 
-    - name: Restart service via SSH
-      run: |
-        ssh deployer@${{ secrets.SSH_HOST }} "bash /home/deployer/web/deploy.sh"
+      - name: Prepare known_hosts
+        run: echo "${{ secrets.KNOWN_HOSTS_LINE }}" >> known_hosts
+
+      - name: Rsync code to server
+        env:
+          SSH_OPTS: "-i key -o CertificateFile=key-cert.pub -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=known_hosts"
+          HOST: ${{ secrets.SSH_HOST }}
+        run: |
+          rsync -avz --delete \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='node_modules/' \
+            --exclude='tests/' \
+            --exclude='.env' \
+            --exclude='logs/' \
+            -e "ssh $SSH_OPTS" \
+            ./ deployer@$HOST:/home/deployer/web/
+
+      - name: Restart service via SSH
+        env:
+          SSH_OPTS: "-i key -o CertificateFile=key-cert.pub -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=known_hosts"
+          HOST: ${{ secrets.SSH_HOST }}
+        run: |
+          ssh $SSH_OPTS deployer@$HOST "bash /home/deployer/web/deploy.sh"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          shred -u key key.pub key-cert.pub || true
+          rm -f known_hosts
