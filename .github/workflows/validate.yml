@@ -16,3 +16,18 @@ jobs:
         with:
           deno-version: "v2.4.4"
       - run: deno cache -r server.ts
+    
+      - name: Inspect OIDC token aud
+        run: |
+            TOK_JSON=$(curl -sS "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sigstore" \
+            -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}")
+            IDTOKEN=$(echo "$TOK_JSON" | jq -r .value)
+
+            if [ -z "$IDTOKEN" ] || [ "$IDTOKEN" = "null" ]; then
+            TOK_JSON=$(curl -sS "${ACTIONS_ID_TOKEN_REQUEST_URL}" \
+                -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}")
+            IDTOKEN=$(echo "$TOK_JSON" | jq -r .value)
+            fi
+
+            echo "aud from token:" 
+            echo "$IDTOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq .aud
