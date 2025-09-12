@@ -1,6 +1,7 @@
 name: Runner Test
 on:
-  workflow_dispatch:
+  pull_request:
+    branches: [ "develop" ]
 
 permissions:
   id-token: write
