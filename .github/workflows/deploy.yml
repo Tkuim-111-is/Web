@@ -12,6 +12,19 @@ jobs:
     - name: Checkout repo
       uses: actions/checkout@v4
 
+    - name: Install Vault CLI
+      run: |
+        curl -L -o vault.zip https://releases.hashicorp.com/vault/1.19.5/vault_1.19.5_linux_amd64.zip
+        unzip vault.zip
+        sudo mv vault /usr/local/bin/
+        vault --version
+
+    - name: Install jq
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y jq
+        jq --version
+    
     - name: Get Vault Token and SSH Certificate
       id: vault-ssh
       run: |
