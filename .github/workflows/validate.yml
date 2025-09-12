@@ -18,16 +18,15 @@ jobs:
       - run: deno cache -r server.ts
     
       - name: Inspect OIDC token aud
+        shell: bash
         run: |
-            TOK_JSON=$(curl -sS "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sigstore" \
-            -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}")
-            IDTOKEN=$(echo "$TOK_JSON" | jq -r .value)
-
-            if [ -z "$IDTOKEN" ] || [ "$IDTOKEN" = "null" ]; then
-            TOK_JSON=$(curl -sS "${ACTIONS_ID_TOKEN_REQUEST_URL}" \
-                -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}")
-            IDTOKEN=$(echo "$TOK_JSON" | jq -r .value)
+            set -euo pipefail
+            URL="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sigstore"
+            TOK_JSON=$(curl -sS -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$URL" || true)
+            IDTOKEN=$(echo "$TOK_JSON" | jq -r '.value')
+            if [[ -z "${IDTOKEN:-}" || "$IDTOKEN" == "null" ]]; then
+            TOK_JSON=$(curl -sS -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}")
+            IDTOKEN=$(echo "$TOK_JSON" | jq -r '.value')
             fi
-
-            echo "aud from token:" 
-            echo "$IDTOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq .aud
+            echo -n "aud from token: "
+            echo "$IDTOKEN" | jq -Rr 'split(".")[1] | @base64d | fromjson | .aud'
