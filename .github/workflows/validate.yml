@@ -1,4 +1,4 @@
-name: Validate Deployability on PR
+name: Validate Deno on PR
 
 on:
   pull_request:
@@ -6,24 +6,13 @@ on:
 
 jobs:
   validate-ci:
-    runs-on: [self-hosted, linux, X64]
+    runs-on: [self-hosted, linux, X64, deploy]
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-
-      - name: Set VAULT_ADDR
-        run: echo "VAULT_ADDR=${{ secrets.VAULT_ADDR }}" >> $GITHUB_ENV
 
       - name: Deno cache
         uses: denoland/setup-deno@v1
         with:
           deno-version: "v2.4.4"
       - run: deno cache -r server.ts
-
-      - name: Validate Vault access
-        run: |
-          export VAULT_TOKEN=$(vault write -format=json auth/approle/login \
-            role_id=${{ secrets.VAULT_ROLE_ID }} \
-            secret_id=${{ secrets.VAULT_SECRET_ID }} | jq -r '.auth.client_token')
-          
-          vault read ssh/roles/deployer-role
