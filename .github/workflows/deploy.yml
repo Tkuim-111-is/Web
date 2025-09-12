@@ -30,6 +30,8 @@ jobs:
           jwtGithubAudience: sigstore
 
       - name: Get short-lived SSH certificate
+        env:
+          VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
         shell: bash
         run: |
           set -euo pipefail
