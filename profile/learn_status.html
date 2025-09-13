@@ -180,29 +180,39 @@
                 const contextRows = data.filter(row => row.context_id === label);
                 const totalTime = contextRows.reduce((sum, row) => sum + (row.time_record || 0), 0);
                 const totalErrors = contextRows.reduce((sum, row) => sum + row.err_count, 0);
-                // 取最新的完成時間
-                const latestCreatedAt = contextRows.reduce((latest, row) => {
-                    return new Date(row.created_at) > new Date(latest) ? row.created_at : latest;
-                }, contextRows[0]?.created_at || '');
+                
+                // 找到最新的記錄（根據 created_at）
+                const latestRecord = contextRows.reduce((latest, row) => {
+                    return new Date(row.created_at) > new Date(latest.created_at) ? row : latest;
+                }, contextRows[0]);
+                
+                // 找到最佳記錄（最少錯誤次數）
+                const bestRecord = contextRows.reduce((best, row) => {
+                    return row.err_count < best.err_count ? row : best;
+                }, contextRows[0]);
                 
                 return {
                     contextId: label,
                     formattedId: formatContextId(label),
                     totalTime,
                     totalErrors,
-                    completedAt: latestCreatedAt
+                    completedAt: latestRecord.created_at,
+                    latestErrorCount: latestRecord.err_count,  // 最新記錄的錯誤次數
+                    bestErrorCount: bestRecord.err_count,      // 最佳記錄的錯誤次數
+                    isPerfectLatest: latestRecord.err_count === 0,  // 最新記錄是否完美
+                    isPerfectBest: bestRecord.err_count === 0       // 是否有完美記錄
                 };
             });
             
             const learningTimes = contextData.map(item => item.totalTime);
             const errorRates = contextData.map(item => item.totalErrors);
 
-            // 為錯誤次數圖表準備顏色 - 0錯誤用金色，其他用紅色
-            const errorColors = errorRates.map(errorCount => 
-                errorCount === 0 ? '#ffd700' : '#f43f5e'  // 金色代表完美表現
+            // 為錯誤次數圖表準備顏色 - 根據最新記錄判定完美表現
+            const errorColors = contextData.map(item => 
+                item.isPerfectLatest ? '#ffd700' : '#f43f5e'  // 金色代表最新記錄完美表現
             );
-            const errorBorderColors = errorRates.map(errorCount => 
-                errorCount === 0 ? '#ffb000' : '#b91c1c'
+            const errorBorderColors = contextData.map(item => 
+                item.isPerfectLatest ? '#ffb000' : '#b91c1c'
             );
 
             // 各關卡錯誤次數圖表
@@ -211,8 +221,8 @@
                 data: {
                     labels: formattedContextLabels,
                     datasets: [{
-                        label: '錯誤次數',
-                        data: errorRates,
+                        label: '最新記錄錯誤次數',
+                        data: contextData.map(item => item.latestErrorCount),
                         backgroundColor: errorColors,
                         borderColor: errorBorderColors,
                         borderWidth: 2
@@ -234,13 +244,17 @@
                                     const index = context.dataIndex;
                                     const contextInfo = contextData[index];
                                     const completedDate = formatDate(contextInfo.completedAt);
-                                    const errorCount = context.parsed.y;
+                                    const latestErrorCount = context.parsed.y;
                                     const labels = [
-                                        `錯誤次數: ${errorCount}`,
-                                        `完成時間: ${completedDate}`
+                                        `最新記錄錯誤次數: ${latestErrorCount}`,
+                                        `歷史最佳錯誤次數: ${contextInfo.bestErrorCount}`,
+                                        `總錯誤次數: ${contextInfo.totalErrors}`,
+                                        `最新完成時間: ${completedDate}`
                                     ];
-                                    if (errorCount === 0) {
-                                        labels.push('🏆 完美表現！');
+                                    if (latestErrorCount === 0) {
+                                        labels.push('🏆 最新記錄完美表現！');
+                                    } else if (contextInfo.bestErrorCount === 0) {
+                                        labels.push('⭐ 曾有完美表現記錄');
                                     }
                                     return labels;
                                 }
@@ -319,15 +333,16 @@
             
             const scatterDatasets = contexts.map((context, index) => {
                 const contextPoints = scatterData.filter(point => point.context_id === context);
-                const hasPerfectScore = contextPoints.some(point => point.x === 0);
+                const contextInfo = contextData.find(item => item.contextId === context);
+                const isPerfectLatest = contextInfo ? contextInfo.isPerfectLatest : false;
                 
                 return {
-                    label: formatContextId(context) + (hasPerfectScore ? ' 🏆' : ''),
+                    label: formatContextId(context) + (isPerfectLatest ? ' 🏆' : ''),
                     data: contextPoints,
-                    backgroundColor: hasPerfectScore ? '#ffd700' : colors[index % colors.length],
-                    borderColor: hasPerfectScore ? '#ffb000' : colors[index % colors.length],
-                    pointRadius: hasPerfectScore ? 10 : 8,
-                    pointHoverRadius: hasPerfectScore ? 12 : 10
+                    backgroundColor: isPerfectLatest ? '#ffd700' : colors[index % colors.length],
+                    borderColor: isPerfectLatest ? '#ffb000' : colors[index % colors.length],
+                    pointRadius: isPerfectLatest ? 10 : 8,
+                    pointHoverRadius: isPerfectLatest ? 12 : 10
                 };
             });
 
@@ -408,19 +423,39 @@
             const averageErrorRate = data.length > 0 ? (totalErr / data.length).toFixed(2) : 0;
             const totalTimeFormatted = formatTime(totalTimeSeconds);
             
-            // 計算完美表現的情境數量（錯誤次數為0）
+            // 計算完美表現的情境數量（基於最新記錄）
             const contextLabels = [...new Set(data.map(row => row.context_id))];
-            const perfectContexts = contextLabels.filter(contextId => {
+            const contextSummary = contextLabels.map(contextId => {
                 const contextRows = data.filter(row => row.context_id === contextId);
-                const totalErrors = contextRows.reduce((sum, row) => sum + row.err_count, 0);
-                return totalErrors === 0;
+                const latestRecord = contextRows.reduce((latest, row) => {
+                    return new Date(row.created_at) > new Date(latest.created_at) ? row : latest;
+                }, contextRows[0]);
+                const bestRecord = contextRows.reduce((best, row) => {
+                    return row.err_count < best.err_count ? row : best;
+                }, contextRows[0]);
+                
+                return {
+                    contextId,
+                    latestErrorCount: latestRecord.err_count,
+                    bestErrorCount: bestRecord.err_count,
+                    isPerfectLatest: latestRecord.err_count === 0,
+                    isPerfectBest: bestRecord.err_count === 0
+                };
             });
+            
+            const perfectLatestContexts = contextSummary.filter(item => item.isPerfectLatest);
+            const perfectBestContexts = contextSummary.filter(item => item.isPerfectBest && !item.isPerfectLatest);
             
             let summaryText = `你總共花了 ${totalTimeFormatted} 學習，平均錯誤次數為 ${averageErrorRate}。`;
             
-            if (perfectContexts.length > 0) {
-                const perfectContextNames = perfectContexts.map(id => formatContextId(id)).join('、');
-                summaryText += `\n\n🏆 恭喜！你在以下 ${perfectContexts.length} 個情境中達到完美表現（零錯誤）：\n${perfectContextNames}`;
+            if (perfectLatestContexts.length > 0) {
+                const perfectLatestNames = perfectLatestContexts.map(item => formatContextId(item.contextId)).join('、');
+                summaryText += `\n\n🏆 恭喜！你在以下 ${perfectLatestContexts.length} 個情境中最新記錄達到完美表現（零錯誤）：\n${perfectLatestNames}`;
+            }
+            
+            if (perfectBestContexts.length > 0) {
+                const perfectBestNames = perfectBestContexts.map(item => formatContextId(item.contextId)).join('、');
+                summaryText += `\n\n⭐ 你在以下 ${perfectBestContexts.length} 個情境中曾經達到完美表現：\n${perfectBestNames}`;
             }
             
             document.getElementById('summary-text').innerText = summaryText;
