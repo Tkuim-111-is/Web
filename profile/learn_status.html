@@ -320,7 +320,7 @@
                 data: {
                     labels: formattedContextLabels,
                     datasets: [{
-                        label: '學習時間 (秒)',
+                        label: '學習時間(分:秒)',
                         data: learningTimes,
                         backgroundColor: '#3b82f6',
                         borderColor: '#1d4ed8',
@@ -345,7 +345,7 @@
                                     const seconds = context.parsed.y;
                                     const completedDate = formatDate(contextInfo.completedAt);
                                     return [
-                                        `學習時間: ${formatTime(seconds)} (${seconds}秒)`,
+                                        `學習時間: ${formatTime(seconds)}`,
                                         `完成時間: ${completedDate}`
                                     ];
                                 }
@@ -419,7 +419,7 @@
                                     const completedDate = formatDate(contextInfo ? contextInfo.completedAt : '');
                                     return [
                                         `錯誤次數: ${point.x}`,
-                                        `學習時間: ${timeFormatted} (${point.y}秒)`,
+                                        `學習時間: ${timeFormatted}`,
                                         `完成時間: ${completedDate}`
                                     ];
                                 }
@@ -431,14 +431,14 @@
                             beginAtZero: true,
                             title: {
                                 display: true,
-                                text: '錯誤次數 (err_count)'
+                                text: '錯誤次數'
                             }
                         },
                         y: {
                             beginAtZero: true,
                             title: {
                                 display: true,
-                                text: '學習時間 (time_record)'
+                                text: '學習時間'
                             },
                             ticks: {
                                 callback: function(value) {
