@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>資許你安全</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/styles.css">
     <link rel="icon" href="/favicon.ico" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
@@ -30,19 +33,18 @@
     </script>
     <header class="header">
         <div class="container">
-            <div class="logo">
-                <h1>資許你安全</h1>
-            </div>
-            <div class="main-buttons">
-                <ul>
-                    <a href="/profile/index_login.html#home">首頁</a></li>
-                    <a href="/profile/index_login.html#about">關於我們</a></li>
-                    <a href="/profile/index_login.html#services">服務</a></li>
-                    <a href="/profile/learn_status.html">學習歷程分析</a></li>
-                    <a href="/profile/exam.html">測驗</a></li>
-                    <a href="/logout">登出</a></li>
-                </ul>
-            </div>
+          <div class="logo">
+            <h1><a href="index.html#home">資許你安全</a></h1>
+          </div>
+          <nav class="main-nav" role="navigation" aria-label="主要導航">
+            <ul>
+                <li><a href="index.html#home" class="active" aria-current="page">首頁</a></li>
+                <li><a href="index.html#about">關於我們</a></li>
+                <li><a href="index.html#services">服務</a></li>
+                <li><a href="learn_status.html">學習歷程分析</a></li>
+                <li><a href="/logout">登出</a></li>
+            </ul>
+          </nav>
         </div>
     </header>
 
@@ -52,8 +54,7 @@
                 <h2>沉浸式學習，資安教育</h2>
                 <p>我們提供專業的資安教育搭配生成式AI，幫助您快速學習資安知識</p>
                 <div class="hero-buttons">
-                    <a href="/profile/learn_status.html" class="btn btn-primary">學習歷程分析</a>
-                    <a href="/profile/exam.html" class="btn btn-secondary">測驗</a>
+                    <a href="learn_status.html" class="btn btn-primary">學習歷程分析</a>
                 </div>
             </div>
         </div>
@@ -74,15 +75,15 @@
                     <img src="/static/images/tkuim.png" alt="我們的團隊">
                     <form>
                         <h3>指導教授</h3>
-                        <p>淡江資管 施聖寶 教授</p>
+                        <p>淡江資管 施盛寶 教授</p>
                         <h4>學生</h4>
-                        <p>411630915 資管3A 徐啟翔</p>
-                        <p>411630014 資管3A 李訓賢</p>
-                        <p>411630527 資管3A 陳震宇</p>
-                        <p>411630881 資管3A 陳竑楷</p>
-                        <p>411630436 資管3A 張柞晨</p>
-                        <p>411631392 資管3A 張祐誠</p>
-                        <p>412637588 資管3A 闕聖儒</p>
+                        <p>411630915 資管4A 徐啟翔</p>
+                        <p>411630014 資管4A 李訓賢</p>
+                        <p>411630527 資管4A 陳震宇</p>
+                        <p>411630881 資管4A 陳竑楷</p>
+                        <p>411630436 資管4A 張柞晨</p>
+                        <p>411631392 資管4A 張祐誠</p>
+                        <p>412637588 資管4A 闕聖儒</p>
                     </form>
                 </div>
             </div>
@@ -131,25 +132,24 @@
                 <div class="footer-links">
                     <h3>快速導覽</h3>
                     <ul>
-                        <li><a href="/profile/index_login.html#home">首頁</a></li>
-                        <li><a href="/profile/index_login.html#about">關於我們</a></li>
-                        <li><a href="/profile/index_login.html#services">服務</a></li>
-                        <li><a href="/profile/learn_status.html">學習歷程分析</a></li>
-                        <li><a href="/profile/exam.html">測驗</a></li>
+                        <li><a href="index.html#home">首頁</a></li>
+                        <li><a href="index.html#about">關於我們</a></li>
+                        <li><a href="index.html#services">服務</a></li>
+                        <li><a href="learn_status.html">學習歷程分析</a></li>
                         <li><a href="/logout">登出</a></li>
                     </ul>
                 </div>
                 <div class="footer-links">
                     <h3>法律資訊</h3>
                     <ul>
-                      <li><a href="privacy.html">隱私權政策</a></li>
-                      <li><a href="tos.html">服務條款</a></li>
+                      <li><a href="/views/privacy.html">隱私權政策</a></li>
+                      <li><a href="/views/tos.html">服務條款</a></li>
                     </ul>
                   </div>
                 <div class="footer-social">
                     <h3>關注我們</h3>
                     <div class="social-icons">
-                        <a href="https://github.com/Tkuim-111-is/Surecurity" class="social-icon"><img src="/static/images/github-mark.svg" alt="Github"></a>
+                        <a href="https://github.com/Tkuim-111-is/Surecurity" class="social-icon"><img src="/static/images/github-mark-white.svg" alt="Github"></a>
                     </div>
                 </div>
             </div>

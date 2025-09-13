@@ -102,7 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
           showMessage('登入成功！正在跳轉到首頁...', 'success');
           setTimeout(() => {
-            globalThis.location.href = '/profile/index_login.html';
+            globalThis.location.href = '/profile/index.html';
           }, 1000);
         } else {
           showMessage(data.message || '登入失敗，請稍後再試', 'error');
@@ -117,6 +117,35 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
           globalThis.location.href = '/login.html';
         }, 2000);
+      });
+    });
+  }
+  
+  // 密碼顯示/隱藏切換功能
+  const passwordToggles = document.querySelectorAll('.password-toggle');
+  if (passwordToggles.length > 0) {
+    passwordToggles.forEach(toggle => {
+      toggle.addEventListener('click', function() {
+        const targetId = this.getAttribute('data-target');
+        const passwordInput = document.getElementById(targetId);
+        const eyeIcon = this.querySelector('.eye-icon');
+        const eyeOffIcon = this.querySelector('.eye-off-icon');
+        
+        if (passwordInput && eyeIcon && eyeOffIcon) {
+          if (passwordInput.type === 'password') {
+            // 顯示密碼
+            passwordInput.type = 'text';
+            eyeIcon.style.display = 'none';
+            eyeOffIcon.style.display = 'block';
+            this.setAttribute('aria-label', '隱藏密碼');
+          } else {
+            // 隱藏密碼
+            passwordInput.type = 'password';
+            eyeIcon.style.display = 'block';
+            eyeOffIcon.style.display = 'none';
+            this.setAttribute('aria-label', '顯示密碼');
+          }
+        }
       });
     });
   }

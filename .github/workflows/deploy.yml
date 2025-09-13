@@ -1,42 +1,73 @@
-name: Deploy (develop -> server via rsync)
+name: Deploy (self-hosted + Vault SSH cert + rsync)
 
 on:
   push:
-    branches: [ "develop" ]
+    branches: ["develop"]
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, deploy]
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-
-      # （可選）Deno 預建置，例如做型別檢查/bundle
-      - name: Deno cache (optional)
-        uses: denoland/setup-deno@v1
+      
+      - name: Login to Vault (OIDC)
+        uses: hashicorp/vault-action@v3
         with:
-          deno-version: "v2.4.3"
-      - run: deno cache -r server.ts
+          url: ${{ secrets.VAULT_ADDR }}
+          method: jwt
+          path: jwt
+          role: gha-repo-deploy
+          exportToken: true
+          jwtGithubAudience: sigstore
 
-      # 用 rsync 同步檔案到伺服器（不需要伺服器 git）
-      - name: Rsync to server
-        uses: burnett01/rsync-deployments@7.0.1
-        with:
-          switches: -avz --delete --exclude='.git/' --exclude='.github/' --exclude='node_modules/' --exclude='tests/' --exclude='.env' --exclude='logs/'
-          path: ./
-          remote_path: /home/deployer/web/
-          remote_host: ${{ secrets.SSH_HOST }}
-          remote_user: ${{ secrets.SSH_USER }}
-          remote_port: ${{ secrets.SSH_PORT }}
-          remote_key: ${{ secrets.SSH_KEY }}
+      - name: Get short-lived SSH certificate
+        env:
+          VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v vault >/dev/null || { echo "Vault CLI not found on runner"; exit 1; }
+          ssh-keygen -t ed25519 -N "" -f key
+          vault write -field=signed_key ssh/sign/gha-deploy \
+            public_key=@key.pub ttl=60s > key-cert.pub
+          ssh-keygen -L -f key-cert.pub
 
-      # 重啟服務（或呼叫你剛剛的 deploy.sh）
-      - name: Restart service
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          script: |
-            bash /home/deployer/web/deploy.sh
+      - name: Prepare known_hosts
+        run: echo "${{ secrets.KNOWN_HOSTS_LINE }}" >> known_hosts
+
+      - name: Rsync & restart service
+        env:
+          VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+          HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_OPTS: "-i key -o CertificateFile=key-cert.pub -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=known_hosts"
+        run: |
+          set -euo pipefail
+          RSYNC_SSH="ssh -p $SSH_PORT $SSH_OPTS"
+
+          rsync -avz --delete \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='node_modules/' \
+            --exclude='tests/' \
+            --exclude='.env' \
+            --exclude='logs/' \
+            -e "$RSYNC_SSH" \
+            ./ deployer@$HOST:/home/deployer/web/
+
+          $RSYNC_SSH deployer@$HOST "bash /home/deployer/web/deploy.sh"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          shred -u key key.pub key-cert.pub || true
+          rm -f known_hosts

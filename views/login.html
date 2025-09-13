@@ -4,8 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>資許你安全 登入或註冊</title>
-  <link rel="stylesheet" href="/static/css/auth.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/styles.css">
+  <link rel="stylesheet" href="/static/css/auth.css">
   <link rel="icon" href="/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
@@ -15,51 +18,69 @@
   <header class="header">
     <div class="container">
       <div class="logo">
-        <h1>資許你安全</h1>
+        <h1><a href="index.html#home">資許你安全</a></h1>
       </div>
-      <div class="main-buttons">
+      <nav class="main-nav" role="navigation" aria-label="主要導航">
         <ul>
-          <a href="index.html#home" class="active">首頁</a>
-          <a href="index.html#about">關於我們</a>
-          <a href="index.html#services">服務</a>
-          <a href="register.html">註冊</a>
-          <a href="login.html">登入</a>
-        </ul>   
-      </div>
+          <li><a href="index.html">首頁</a></li>
+          <li><a href="index.html#about">關於我們</a></li>
+          <li><a href="index.html#services">服務</a></li>
+          <li><a href="register.html">註冊</a></li>
+          <li><a href="login.html" class="active" aria-current="page">登入</a></li>
+        </ul>
+      </nav>
     </div>
   </header>
 
-  <section class="auth-section">
-    <div class="container">
-      <div class="auth-container">
-        <div class="auth-header">
-          <h2>歡迎回來</h2>
-          <p>登入帳號，查看學習歷程與測驗</p>
-        </div>
-			<form id="loginForm" class="auth-form">
-				<div class="form-group">
-					<label for="email">電子郵件</label>
-					<input type="email" id="email" name="email" placeholder="請輸入電子郵件" required>
-				</div>
-				<div class="form-group">
-					<label for="password">密碼</label>
-					<input type="password" id="password" name="password" placeholder="請輸入密碼" required>
-				</div>
-				<div class="form-group">
-					<div class="checkbox-group">
-						<input type="checkbox" id="remember" name="remember">
-						<label for="remember">記住我</label>
-					</div>
-					<a href="#" class="forgot-password">忘記密碼？</a>
-				</div>
-				<button type="submit" class="btn btn-primary btn-block">登入</button>
-			</form>
-        <div class="auth-footer">
-          <p>還沒有帳號？<a href="register.html">立即註冊</a></p>
+  <main>
+    <section class="auth-section" role="main">
+      <div class="container">
+        <div class="auth-container scroll-reveal">
+          <header class="auth-header">
+            <h1>歡迎回來</h1>
+            <p>登入帳號，查看學習歷程</p>
+          </header>
+          <form id="loginForm" class="auth-form" novalidate>
+            <div class="form-group">
+              <label for="email">電子郵件</label>
+              <input type="email" id="email" name="email" placeholder="請輸入電子郵件" required aria-describedby="email-error">
+              <div id="email-error" class="error-message" role="alert" aria-live="polite"></div>
+            </div>
+            <div class="form-group">
+              <label for="password">密碼</label>
+              <div class="password-input-container">
+                <input type="password" id="password" name="password" placeholder="請輸入密碼" required aria-describedby="password-error">
+                <button type="button" class="password-toggle" aria-label="顯示密碼" data-target="password">
+                  <svg class="eye-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                  <svg class="eye-off-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+                    <path d="m9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
+                    <path d="m10.73 5.08a10.43 10.43 0 0 1 1.27-.08c7 0 11 8 11 8a13.16 13.16 0 0 1-1.67 2.68"></path>
+                    <path d="M6.61 6.61A13.526 13.526 0 0 0 1 12s4 8 11 8a9.74 9.74 0 0 0 5.39-1.61"></path>
+                    <line x1="2" y1="2" x2="22" y2="22"></line>
+                  </svg>
+                </button>
+              </div>
+              <div id="password-error" class="error-message" role="alert" aria-live="polite"></div>
+            </div>
+            <div class="form-group">
+              <div class="checkbox-group">
+                <input type="checkbox" id="remember" name="remember">
+                <label for="remember">記住我</label>
+              </div>
+              <a href="#" class="forgot-password">忘記密碼？</a>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block micro-interaction">登入</button>
+          </form>
+          <footer class="auth-footer">
+            <p>還沒有帳號？<a href="register.html">立即註冊</a></p>
+          </footer>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
+  </main>
 
   <footer class="footer">
     <div class="container">
@@ -88,7 +109,7 @@
         <div class="footer-social">
           <h3>關注我們</h3>
           <div class="social-icons">
-            <a href="https://github.com/Tkuim-111-is/Surecurity" class="social-icon"><img src="/static/images/github-mark.svg" alt="Github"></a>
+            <a href="https://github.com/Tkuim-111-is/Surecurity" class="social-icon"><img src="/static/images/github-mark-white.svg" alt="Github"></a>
           </div>
         </div>
       </div>
