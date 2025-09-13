@@ -26,7 +26,6 @@
                 <li><a href="index.html#about">關於我們</a></li>
                 <li><a href="index.html#services">服務</a></li>
                 <li><a href="learn_status.html"  class="active" aria-current="page">學習歷程分析</a></li>
-                <li><a href="exam.html">測驗</a></li>
                 <li><a href="/logout">登出</a></li>
             </ul>
           </nav>
@@ -69,7 +68,6 @@
                         <li><a href="index.html#about">關於我們</a></li>
                         <li><a href="index.html#services">服務</a></li>
                         <li><a href="learn_status.html"  class="active" aria-current="page">學習歷程分析</a></li>
-                        <li><a href="exam.html">測驗</a></li>
                         <li><a href="/logout">登出</a></li>
                     </ul>
                 </div>
@@ -139,14 +137,21 @@
             return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
         }
 
-        // Context ID 格式化函數：兩位數轉換為帶連字號格式
+        // Context ID 對應表
+        const contextIdMapping = {
+            2: '會議室管理',
+            4: '無線網路安全',
+            6: '外來裝置風險',
+            71: '密碼強度',
+            72: '機密文件管理',
+            73: '資料外洩風險',
+            74: '惡意網站',
+            75: '釣魚郵件防範'
+        };
+
+        // Context ID 格式化函數：轉換為中文名稱
         function formatContextId(contextId) {
-            const contextStr = contextId.toString();
-            // 檢查是否為兩位數
-            if (contextStr.length === 2 && /^\d{2}$/.test(contextStr)) {
-                return `${contextStr[0]}-${contextStr[1]}`;
-            }
-            return contextStr;
+            return contextIdMapping[contextId] || `情境${contextId}`;
         }
 
         // 日期格式化函數：將 MySQL DATETIME 轉換為年月日格式
@@ -215,7 +220,7 @@
                                 title: function(context) {
                                     const index = context[0].dataIndex;
                                     const contextInfo = contextData[index];
-                                    return `情境${contextInfo.formattedId}`;
+                                    return contextInfo.formattedId;
                                 },
                                 label: function(context) {
                                     const index = context.dataIndex;
@@ -260,7 +265,7 @@
                                 title: function(context) {
                                     const index = context[0].dataIndex;
                                     const contextInfo = contextData[index];
-                                    return `情境${contextInfo.formattedId}`;
+                                    return contextInfo.formattedId;
                                 },
                                 label: function(context) {
                                     const index = context.dataIndex;
@@ -300,7 +305,7 @@
             const colors = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#84cc16'];
             
             const scatterDatasets = contexts.map((context, index) => ({
-                label: `Context ${formatContextId(context)}`,
+                label: formatContextId(context),
                 data: scatterData.filter(point => point.context_id === context),
                 backgroundColor: colors[index % colors.length],
                 borderColor: colors[index % colors.length],
@@ -329,7 +334,7 @@
                                     const dataset = scatterDatasets[datasetIndex];
                                     const dataPoint = dataset.data[dataIndex];
                                     const contextInfo = contextData.find(item => item.contextId === dataPoint.context_id);
-                                    return `情境${contextInfo ? contextInfo.formattedId : dataPoint.context_id}`;
+                                    return contextInfo ? contextInfo.formattedId : formatContextId(dataPoint.context_id);
                                 },
                                 label: function(context) {
                                     const datasetIndex = context.datasetIndex;
