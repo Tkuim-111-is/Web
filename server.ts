@@ -2,8 +2,21 @@ import { Application, Router, send } from "https://deno.land/x/oak/mod.ts";
 import { registerRouter } from "./api/auth/register.ts";
 import { loginRouter } from "./api/auth/login.ts";
 import { learnStatusRouter } from "./api/profile/learn_status.ts";
+import { healthRouter } from "./api/health.ts";
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
 import { jwtVerify } from "https://deno.land/x/jose@v5.3.0/jwt/verify.ts";
+
+// OpenTelemetry 初始化 - 必須在其他模組之前載入
+import { initializeOpenTelemetry, shutdownOpenTelemetry } from "./otel.ts";
+import { 
+  telemetryMiddleware, 
+  errorHandlingMiddleware, 
+  loggingMiddleware, 
+  jwtTracingMiddleware 
+} from "./middleware/telemetry.ts";
+
+// 初始化 OpenTelemetry
+const { tracer, meter } = initializeOpenTelemetry();
 
 const JWT_SECRET_RAW = Deno.env.get("JWT_SECRET");
 if (!JWT_SECRET_RAW) throw new Error("JWT_SECRET 未設定");
@@ -15,6 +28,11 @@ const router = new Router();
 // ==========================
 // 中間件區塊
 // ==========================
+
+// OpenTelemetry 中間件 - 必須最先載入
+app.use(errorHandlingMiddleware);
+app.use(loggingMiddleware);
+app.use(telemetryMiddleware);
 
 // 解析 JSON 主體
 app.use(async (ctx, next) => {
@@ -33,6 +51,7 @@ app.use(async (ctx, next) => {
 });
 
 // JWT 驗證：將驗證結果存入 ctx.state.user
+app.use(jwtTracingMiddleware);
 app.use(async (ctx, next) => {
   const auth = ctx.request.headers.get("Authorization");
   if (auth && auth.startsWith("Bearer ")) {
@@ -77,6 +96,10 @@ app.use(async (ctx, next) => {
 // ==========================
 // API 路由（不需 JWT）
 // ==========================
+// 健康檢查路由 - 不需要任何驗證
+app.use(healthRouter.routes());
+app.use(healthRouter.allowedMethods());
+
 app.use(registerRouter.routes());
 app.use(registerRouter.allowedMethods());
 
@@ -152,4 +175,16 @@ app.use(router.allowedMethods());
 const port = parseInt(Deno.env.get("PORT") ?? "8000");
 
 console.log(`[${new Date().toISOString()}] [INFO] [server.ts] Server is running at http://localhost:${port}`);
+
+// 優雅關閉處理
+const handleShutdown = async () => {
+  console.log(`[${new Date().toISOString()}] [INFO] [server.ts] Shutting down server...`);
+  await shutdownOpenTelemetry();
+  Deno.exit(0);
+};
+
+// 監聽關閉信號
+Deno.addSignalListener("SIGINT", handleShutdown);
+Deno.addSignalListener("SIGTERM", handleShutdown);
+
 await app.listen({ port });

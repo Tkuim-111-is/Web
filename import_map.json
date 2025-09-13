@@ -1,6 +1,18 @@
 {
   "imports": {
     "std/": "https://deno.land/std@0.177.0/",
-    "http/": "https://deno.land/std@0.177.0/http/"
+    "http/": "https://deno.land/std@0.177.0/http/",
+    "@opentelemetry/api": "https://esm.sh/@opentelemetry/api@1.8.0",
+    "@opentelemetry/sdk-node": "https://esm.sh/@opentelemetry/sdk-node@0.51.1",
+    "@opentelemetry/auto-instrumentations-node": "https://esm.sh/@opentelemetry/auto-instrumentations-node@0.46.1",
+    "@opentelemetry/exporter-jaeger": "https://esm.sh/@opentelemetry/exporter-jaeger@1.25.1",
+    "@opentelemetry/exporter-prometheus": "https://esm.sh/@opentelemetry/exporter-prometheus@0.51.1",
+    "@opentelemetry/instrumentation-http": "https://esm.sh/@opentelemetry/instrumentation-http@0.51.1",
+    "@opentelemetry/instrumentation-mysql2": "https://esm.sh/@opentelemetry/instrumentation-mysql2@0.38.1",
+    "@opentelemetry/resources": "https://esm.sh/@opentelemetry/resources@1.24.1",
+    "@opentelemetry/semantic-conventions": "https://esm.sh/@opentelemetry/semantic-conventions@1.24.1",
+    "@opentelemetry/exporter-logs-otlp-http": "https://esm.sh/@opentelemetry/exporter-logs-otlp-http@0.51.1",
+    "@opentelemetry/exporter-trace-otlp-http": "https://esm.sh/@opentelemetry/exporter-trace-otlp-http@0.51.1",
+    "@opentelemetry/exporter-metrics-otlp-http": "https://esm.sh/@opentelemetry/exporter-metrics-otlp-http@0.51.1"
   }
 } 

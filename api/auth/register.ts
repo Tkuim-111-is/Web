@@ -1,7 +1,7 @@
 import { Router } from "https://deno.land/x/oak/mod.ts";
-import { Client } from "https://deno.land/x/mysql/mod.ts";
 import * as bcrypt from "https://deno.land/x/bcrypt/mod.ts";
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
+import { createTracedClient, createBusinessTracer } from "../../utils/db-tracer.ts";
 
 // 讀取資料庫設定
 const dbConfig = {
@@ -11,7 +11,10 @@ const dbConfig = {
   db: Deno.env.get("DB_NAME") ?? "test_db",
 };
 
-const client = await new Client().connect(dbConfig);
+const client = createTracedClient();
+await client.connect(dbConfig);
+
+const businessTracer = createBusinessTracer();
 
 // 創建路由處理註冊請求
 export const registerRouter = new Router();
@@ -34,36 +37,45 @@ registerRouter.post("/api/auth/register", async (ctx) => {
         return;
       }
 
-      // 檢查郵箱是否已註冊
-      const existingUser = await client.query(
-        `SELECT * FROM users WHERE email = ?`,
-        [email]
-      );
+      // 使用業務追蹤器包裝註冊邏輯
+      await businessTracer.traceUserRegistration(email, async () => {
+        // 檢查郵箱是否已註冊
+        const existingUser = await client.query(
+          `SELECT * FROM users WHERE email = ?`,
+          [email]
+        );
 
-      if (existingUser.length > 0) {
-        ctx.response.status = 400;
-        ctx.response.body = { success: false, message: "此電子郵件已被註冊" };
-        return;
-      }
+        if (existingUser.length > 0) {
+          ctx.response.status = 400;
+          ctx.response.body = { success: false, message: "此電子郵件已被註冊" };
+          return;
+        }
 
-      // 對密碼進行加密
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
+        // 對密碼進行加密
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
 
-      // 將用戶資料插入資料庫
-      await client.execute(
-        `INSERT INTO users (email, password) 
-         values (?, ?)`,
-        [email, hashedPassword]
-      );
+        // 將用戶資料插入資料庫
+        await client.execute(
+          `INSERT INTO users (email, password) 
+           values (?, ?)`,
+          [email, hashedPassword]
+        );
 
-      ctx.response.body = { success: true };
+        ctx.response.body = { success: true };
+      });
     } else {
       ctx.response.status = 400;
       ctx.response.body = { success: false, message: "沒有提供請求數據" };
     }
   } catch (error) {
-    console.error("註冊錯誤:", error);
+    console.error(JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level: 'ERROR',
+      message: 'User registration failed',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      requestId: ctx.state.requestId,
+    }));
     ctx.response.status = 500;
     ctx.response.body = { 
       success: false, 
