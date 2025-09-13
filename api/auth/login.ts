@@ -45,7 +45,7 @@ loginRouter.post("/api/auth/login", async (ctx) => {
           return;
         }
 
-        const user = users[0];
+        const user = users[0] as { id: number; email: string; password: string };
         const validPassword = await bcrypt.compare(password, user.password);
 
         console.log(JSON.stringify({

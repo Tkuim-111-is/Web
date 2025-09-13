@@ -18,6 +18,10 @@ import {
 // 初始化 OpenTelemetry
 const { tracer, meter } = initializeOpenTelemetry();
 
+// 啟動 Prometheus 指標伺服器
+import { startPrometheusServer } from "./otel.ts";
+startPrometheusServer();
+
 const JWT_SECRET_RAW = Deno.env.get("JWT_SECRET");
 if (!JWT_SECRET_RAW) throw new Error("JWT_SECRET 未設定");
 const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_RAW);

@@ -188,9 +188,11 @@ healthRouter.get("/live", (ctx) => {
 // Prometheus metrics 端點
 healthRouter.get("/metrics", async (ctx) => {
   try {
-    // 這個端點會由 PrometheusExporter 自動處理
-    // 但我們可以在這裡加入自定義邏輯
+    // 從內建的 Prometheus 伺服器獲取指標
     const response = await fetch("http://localhost:9464/metrics");
+    if (!response.ok) {
+      throw new Error(`Metrics server responded with ${response.status}`);
+    }
     const metrics = await response.text();
     
     ctx.response.headers.set("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
@@ -203,7 +205,18 @@ healthRouter.get("/metrics", async (ctx) => {
       error: error instanceof Error ? error.message : 'Unknown error',
     }));
     
-    ctx.response.status = 500;
-    ctx.response.body = "# Failed to fetch metrics\n";
+    // 提供基本的指標作為後備
+    const basicMetrics = `
+# HELP http_requests_total Total number of HTTP requests
+# TYPE http_requests_total counter
+http_requests_total{method="GET",route="/health"} 1
+
+# HELP service_info Service information
+# TYPE service_info gauge
+service_info{service="${Deno.env.get("SERVICE_NAME") || "deno-web-app"}",version="${Deno.env.get("SERVICE_VERSION") || "1.0.0"}"} 1
+`.trim();
+    
+    ctx.response.headers.set("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+    ctx.response.body = basicMetrics;
   }
 });

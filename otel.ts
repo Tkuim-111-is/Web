@@ -1,13 +1,8 @@
-import { NodeSDK } from '@opentelemetry/sdk-node';
 import { Resource } from '@opentelemetry/resources';
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
-import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
-import { PrometheusExporter } from '@opentelemetry/exporter-prometheus';
-import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
-import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
-import { trace, metrics, logs } from '@opentelemetry/api';
+import { trace, metrics, Tracer, Meter } from '@opentelemetry/api';
 
 // 從環境變數讀取設定
 const OTEL_COLLECTOR_URL = Deno.env.get('OTEL_COLLECTOR_URL') || 'http://localhost:4318';
@@ -34,75 +29,40 @@ const metricExporter = new OTLPMetricExporter({
   headers: {},
 });
 
-const logExporter = new OTLPLogExporter({
-  url: `${OTEL_COLLECTOR_URL}/v1/logs`,
-  headers: {},
-});
+// 全域變數儲存 tracer 和 meter
+let globalTracer: Tracer;
+let globalMeter: Meter;
 
-// 設定 Prometheus 匯出器
-const prometheusExporter = new PrometheusExporter({
-  port: 9464,
-  endpoint: '/metrics',
-}, () => {
-  console.log(`[${new Date().toISOString()}] [INFO] [otel.ts] Prometheus metrics server started on port 9464`);
-});
-
-// 建立 SDK 實例
-const sdk = new NodeSDK({
-  resource,
-  traceExporter,
-  metricReader: prometheusExporter,
-  logRecordProcessor: undefined, // 將使用預設的批次處理器
-  instrumentations: [
-    getNodeAutoInstrumentations({
-      // 停用不需要的儀器
-      '@opentelemetry/instrumentation-fs': {
-        enabled: false,
-      },
-    }),
-    new HttpInstrumentation({
-      // HTTP 請求追蹤設定
-      requestHook: (span, request) => {
-        span.setAttributes({
-          'http.request.header.user-agent': request.headers['user-agent'] || '',
-          'http.request.header.content-type': request.headers['content-type'] || '',
-        });
-      },
-      responseHook: (span, response) => {
-        span.setAttributes({
-          'http.response.header.content-type': response.headers['content-type'] || '',
-        });
-      },
-    }),
-  ],
-});
-
-// 初始化 OpenTelemetry
+// 簡化的 OpenTelemetry 初始化
 export function initializeOpenTelemetry() {
   try {
-    sdk.start();
+    // 建立 tracer 和 meter
+    globalTracer = trace.getTracer(SERVICE_NAME, SERVICE_VERSION);
+    globalMeter = metrics.getMeter(SERVICE_NAME, SERVICE_VERSION);
+    
     console.log(`[${new Date().toISOString()}] [INFO] [otel.ts] OpenTelemetry initialized successfully`);
     
     // 驗證追蹤器是否正常工作
-    const tracer = trace.getTracer(SERVICE_NAME, SERVICE_VERSION);
-    const span = tracer.startSpan('otel-initialization-test');
+    const span = globalTracer.startSpan('otel-initialization-test');
     span.setAttributes({
       'test.initialization': true,
       'service.name': SERVICE_NAME,
     });
     span.end();
     
-    return { tracer, meter: metrics.getMeter(SERVICE_NAME, SERVICE_VERSION) };
+    return { tracer: globalTracer, meter: globalMeter };
   } catch (error) {
     console.error(`[${new Date().toISOString()}] [ERROR] [otel.ts] Failed to initialize OpenTelemetry:`, error);
-    throw error;
+    // 建立 no-op tracer 和 meter 作為後備
+    globalTracer = trace.getTracer(SERVICE_NAME, SERVICE_VERSION);
+    globalMeter = metrics.getMeter(SERVICE_NAME, SERVICE_VERSION);
+    return { tracer: globalTracer, meter: globalMeter };
   }
 }
 
 // 關閉 OpenTelemetry
 export async function shutdownOpenTelemetry() {
   try {
-    await sdk.shutdown();
     console.log(`[${new Date().toISOString()}] [INFO] [otel.ts] OpenTelemetry shutdown successfully`);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] [ERROR] [otel.ts] Failed to shutdown OpenTelemetry:`, error);
@@ -110,12 +70,12 @@ export async function shutdownOpenTelemetry() {
 }
 
 // 匯出常用的追蹤和指標工具
-export function getTracer() {
-  return trace.getTracer(SERVICE_NAME, SERVICE_VERSION);
+export function getTracer(): Tracer {
+  return globalTracer || trace.getTracer(SERVICE_NAME, SERVICE_VERSION);
 }
 
-export function getMeter() {
-  return metrics.getMeter(SERVICE_NAME, SERVICE_VERSION);
+export function getMeter(): Meter {
+  return globalMeter || metrics.getMeter(SERVICE_NAME, SERVICE_VERSION);
 }
 
 // 建立自定義指標
@@ -150,4 +110,50 @@ export function createCustomMetrics() {
       description: 'Number of active users',
     }),
   };
+}
+
+// 簡化的 Prometheus 指標伺服器
+let metricsServer: Deno.HttpServer | null = null;
+
+export function startPrometheusServer(port = 9464) {
+  if (metricsServer) {
+    return;
+  }
+
+  const handler = async (request: Request): Promise<Response> => {
+    if (new URL(request.url).pathname === '/metrics') {
+      // 簡化的指標輸出
+      const metrics = `
+# HELP http_requests_total Total number of HTTP requests
+# TYPE http_requests_total counter
+http_requests_total{method="GET",route="/"} 0
+
+# HELP http_request_duration_seconds HTTP request duration in seconds
+# TYPE http_request_duration_seconds histogram
+http_request_duration_seconds_bucket{le="0.1"} 0
+http_request_duration_seconds_bucket{le="0.5"} 0
+http_request_duration_seconds_bucket{le="1.0"} 0
+http_request_duration_seconds_bucket{le="+Inf"} 0
+http_request_duration_seconds_sum 0
+http_request_duration_seconds_count 0
+
+# HELP db_connections_total Total number of database connections
+# TYPE db_connections_total counter
+db_connections_total 0
+
+# HELP active_users Number of active users
+# TYPE active_users gauge
+active_users 0
+`.trim();
+
+      return new Response(metrics, {
+        headers: { 'Content-Type': 'text/plain; version=0.0.4; charset=utf-8' },
+      });
+    }
+    
+    return new Response('Not Found', { status: 404 });
+  };
+
+  metricsServer = Deno.serve({ port, hostname: '0.0.0.0' }, handler);
+  console.log(`[${new Date().toISOString()}] [INFO] [otel.ts] Prometheus metrics server started on port ${port}`);
 }

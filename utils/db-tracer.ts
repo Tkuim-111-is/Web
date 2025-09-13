@@ -23,7 +23,7 @@ export class TracedMySQLClient {
         'db.system': 'mysql',
         'db.operation': this.extractOperation(sql),
         'db.statement': sql,
-        'db.sql.table': this.extractTable(sql),
+        'db.sql.table': this.extractTable(sql) || 'unknown',
       },
     });
 
@@ -86,7 +86,7 @@ export class TracedMySQLClient {
         'db.system': 'mysql',
         'db.operation': this.extractOperation(sql),
         'db.statement': sql,
-        'db.sql.table': this.extractTable(sql),
+        'db.sql.table': this.extractTable(sql) || 'unknown',
       },
     });
 
@@ -136,7 +136,7 @@ export class TracedMySQLClient {
   }
 
   // 代理其他方法到原始客戶端
-  async connect(config: unknown) {
+  async connect(config: any) {
     const span = this.tracer.startSpan('db.connect', {
       kind: SpanKind.CLIENT,
       attributes: {
