@@ -49,7 +49,92 @@
             </div>
             <div class="summary-container">
                 <h2>學習總結</h2>
-                <p id="summary-text">載入中...</p>
+                <div class="summary-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                                <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                                <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="total-scenarios">-</div>
+                            <div class="stat-label">完成情境</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                <polyline points="12,6 12,12 16,14" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="total-time">-</div>
+                            <div class="stat-label">總學習時間</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M9 12L11 14L15 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="perfect-scenarios">-</div>
+                            <div class="stat-label">完美通關</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="avg-errors">-</div>
+                            <div class="stat-label">平均錯誤次數</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="performance-analysis">
+                    <h3>學習表現分析</h3>
+                    <div class="progress-bars">
+                        <div class="progress-item">
+                            <div class="progress-header">
+                                <span>整體掌握度</span>
+                                <span id="mastery-percentage">-</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="mastery-progress"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="progress-item">
+                            <div class="progress-header">
+                                <span>效率指標</span>
+                                <span id="efficiency-percentage">-</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="efficiency-progress"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="detailed-summary">
+                    <h3>詳細總結</h3>
+                    <div class="summary-text" id="summary-text">載入中...</div>
+                    <div class="achievements" id="achievements-list">
+                        <!-- 成就列表將在這裡動態生成 -->
+                    </div>
+                </div>
             </div>
         </div>
     </section>
@@ -396,8 +481,173 @@
             const averageErrorRate = data.length > 0 ? (totalErr / data.length).toFixed(2) : 0;
             const totalTimeFormatted = formatTime(totalTimeSeconds);
             
-            document.getElementById('summary-text').innerText =
-                `你總共花了 ${totalTimeFormatted} 學習，平均錯誤次數為 ${averageErrorRate}。`;
+            // 計算統計資料
+            const contextLabels = [...new Set(data.map(row => row.context_id))];
+            const totalScenarios = contextLabels.length;
+            
+            // 計算完美通關數量（錯誤次數為0的情境）
+            const perfectScenarios = contextLabels.filter(contextId => {
+                const contextRows = data.filter(row => row.context_id === contextId);
+                const bestRecord = contextRows.reduce((best, row) => {
+                    return row.err_count < best.err_count ? row : best;
+                }, contextRows[0]);
+                return bestRecord.err_count === 0;
+            }).length;
+            
+            // 計算掌握度（基於錯誤次數）
+            const masteryScore = totalScenarios > 0 ? Math.max(0, 100 - (averageErrorRate * 10)) : 0;
+            
+            // 計算效率指標（基於時間和錯誤次數的綜合評估）
+            const avgTimePerScenario = totalScenarios > 0 ? totalTimeSeconds / totalScenarios : 0;
+            const timeEfficiency = Math.max(0, 100 - (avgTimePerScenario / 60) * 5); // 假設理想時間為1分鐘
+            const errorEfficiency = Math.max(0, 100 - averageErrorRate * 20);
+            const overallEfficiency = (timeEfficiency + errorEfficiency) / 2;
+            
+            // 更新統計卡片
+            document.getElementById('total-scenarios').textContent = totalScenarios;
+            document.getElementById('total-time').textContent = totalTimeFormatted;
+            document.getElementById('perfect-scenarios').textContent = `${perfectScenarios}/${totalScenarios}`;
+            document.getElementById('avg-errors').textContent = averageErrorRate;
+            
+            // 更新進度條
+            document.getElementById('mastery-percentage').textContent = `${Math.round(masteryScore)}%`;
+            document.getElementById('mastery-progress').style.width = `${masteryScore}%`;
+            
+            document.getElementById('efficiency-percentage').textContent = `${Math.round(overallEfficiency)}%`;
+            document.getElementById('efficiency-progress').style.width = `${overallEfficiency}%`;
+            
+            // 更新詳細總結文字
+            const summaryText = generateDetailedSummary(data, totalTimeFormatted, averageErrorRate, totalScenarios, perfectScenarios, masteryScore, overallEfficiency);
+            document.getElementById('summary-text').innerHTML = summaryText;
+            
+            // 生成成就列表
+            generateAchievements(data, totalScenarios, perfectScenarios, totalTimeSeconds, averageErrorRate);
+        }
+        
+        // 生成詳細總結文字
+        function generateDetailedSummary(data, totalTime, avgErrors, totalScenarios, perfectScenarios, masteryScore, efficiency) {
+            let summary = `<strong>學習概況：</strong><br>`;
+            summary += `你總共完成了 <span style="color: var(--primary-600); font-weight: 700;">${totalScenarios}</span> 個資安情境的學習，`;
+            summary += `累計學習時間為 <span style="color: var(--primary-600); font-weight: 700;">${totalTime}</span>。<br><br>`;
+            
+            summary += `<strong>表現分析：</strong><br>`;
+            if (perfectScenarios > 0) {
+                summary += `🎉 恭喜！你在 <span style="color: var(--success-600); font-weight: 700;">${perfectScenarios}</span> 個情境中達到了完美通關（零錯誤）！<br>`;
+            }
+            
+            summary += `平均每個情境的錯誤次數為 <span style="color: ${avgErrors <= 1 ? 'var(--success-600)' : avgErrors <= 3 ? 'var(--warning-600)' : 'var(--danger-600)'}; font-weight: 700;">${avgErrors}</span> 次。<br><br>`;
+            
+            // 根據表現給出建議
+            if (masteryScore >= 80) {
+                summary += `<strong>🌟 優秀表現：</strong>你的掌握度達到了 ${Math.round(masteryScore)}%，表現非常出色！繼續保持這種學習態度。`;
+            } else if (masteryScore >= 60) {
+                summary += `<strong>📈 良好進步：</strong>你的掌握度為 ${Math.round(masteryScore)}%，已經有了不錯的基礎，建議多複習錯誤較多的情境。`;
+            } else {
+                summary += `<strong>💪 持續努力：</strong>你的掌握度為 ${Math.round(masteryScore)}%，還有很大的提升空間，建議重複練習並仔細閱讀相關資安知識。`;
+            }
+            
+            return summary;
+        }
+        
+        // 生成成就列表
+        function generateAchievements(data, totalScenarios, perfectScenarios, totalTimeSeconds, avgErrors) {
+            const achievementsContainer = document.getElementById('achievements-list');
+            const achievements = [];
+            
+            // 完成情境成就
+            if (totalScenarios >= 8) {
+                achievements.push({
+                    icon: '🏆',
+                    type: 'gold',
+                    text: '資安專家 - 完成所有學習情境'
+                });
+            } else if (totalScenarios >= 5) {
+                achievements.push({
+                    icon: '🥈',
+                    type: 'silver', 
+                    text: `情境探索者 - 完成 ${totalScenarios} 個學習情境`
+                });
+            } else if (totalScenarios >= 3) {
+                achievements.push({
+                    icon: '🥉',
+                    type: 'bronze',
+                    text: `學習新手 - 完成 ${totalScenarios} 個學習情境`
+                });
+            }
+            
+            // 完美通關成就
+            if (perfectScenarios >= 5) {
+                achievements.push({
+                    icon: '⭐',
+                    type: 'gold',
+                    text: `完美主義者 - ${perfectScenarios} 次完美通關`
+                });
+            } else if (perfectScenarios >= 3) {
+                achievements.push({
+                    icon: '✨',
+                    type: 'silver',
+                    text: `精準射手 - ${perfectScenarios} 次完美通關`
+                });
+            } else if (perfectScenarios >= 1) {
+                achievements.push({
+                    icon: '💫',
+                    type: 'bronze',
+                    text: `初露鋒芒 - ${perfectScenarios} 次完美通關`
+                });
+            }
+            
+            // 學習時間成就
+            const totalMinutes = Math.floor(totalTimeSeconds / 60);
+            if (totalMinutes >= 60) {
+                achievements.push({
+                    icon: '⏰',
+                    type: 'gold',
+                    text: `學習馬拉松 - 累計學習超過 1 小時`
+                });
+            } else if (totalMinutes >= 30) {
+                achievements.push({
+                    icon: '🕐',
+                    type: 'silver',
+                    text: `專注學習者 - 累計學習超過 30 分鐘`
+                });
+            } else if (totalMinutes >= 10) {
+                achievements.push({
+                    icon: '⏱️',
+                    type: 'bronze',
+                    text: `時間投資者 - 累計學習超過 10 分鐘`
+                });
+            }
+            
+            // 錯誤率成就
+            if (avgErrors <= 1) {
+                achievements.push({
+                    icon: '🎯',
+                    type: 'gold',
+                    text: '神射手 - 平均錯誤次數極低'
+                });
+            } else if (avgErrors <= 2) {
+                achievements.push({
+                    icon: '🏹',
+                    type: 'silver',
+                    text: '準確射手 - 平均錯誤次數較低'
+                });
+            }
+            
+            // 渲染成就
+            if (achievements.length === 0) {
+                achievementsContainer.innerHTML = '<p style="text-align: center; color: var(--gray-500); font-style: italic;">繼續學習以解鎖更多成就！</p>';
+            } else {
+                achievementsContainer.innerHTML = achievements.map(achievement => `
+                    <div class="achievement-item">
+                        <div class="achievement-icon ${achievement.type}">
+                            ${achievement.icon}
+                        </div>
+                        <div class="achievement-text">
+                            ${achievement.text}
+                        </div>
+                    </div>
+                `).join('');
+            }
         }
 
         // 初始化
