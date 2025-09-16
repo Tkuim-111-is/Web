@@ -25,16 +25,16 @@ const _JWT_SECRET = new TextEncoder().encode(JWT_SECRET_RAW);
 learnStatusRouter.post("/api/profile/learn_status", async (ctx) => {
   try {
     if (ctx.request.hasBody) {
-      const { user_email, context_id, err_count, time_record } = ctx.state.body;
-      if (!user_email || !context_id || err_count === undefined || time_record === undefined) {
+      const { user_id, context_id, err_count, time_record } = ctx.state.body;
+      if (!user_id || !context_id || err_count === undefined || time_record === undefined) {
         ctx.response.status = 400;
         ctx.response.body = { success: false, message: "缺少必要欄位" };
         return;
       }
       
       await client.execute(
-        "INSERT INTO learn_status (user_email, context_id, err_count, time_record) VALUES (?, ?, ?, ?)",
-        [user_email, context_id, err_count, time_record]
+        "INSERT INTO learn_status (user_id, context_id, err_count, time_record) VALUES (?, ?, ?, ?)",
+        [user_id, context_id, err_count, time_record]
       );
       ctx.response.body = { success: true };
     } else {
@@ -56,9 +56,9 @@ learnStatusRouter.get("/api/profile/learn_status", async (ctx) => {
     return;
   }
   const rows = await client.query(
-    "SELECT context_id, err_count, time_record, created_at FROM learn_status WHERE user_email = ? ORDER BY context_id",
-    [user.email]
+    "SELECT context_id, err_count, time_record, created_at FROM learn_status WHERE user_id = ? ORDER BY context_id",
+    [user.id]
   );
-  console.log(`[${new Date().toISOString()}] [INFO] [learn_status.ts] user_email: ${user.email}, rows: ${JSON.stringify(rows)}`);
+  console.log(`[${new Date().toISOString()}] [INFO] [learn_status.ts] user_id: ${user.id}, rows: ${JSON.stringify(rows)}`);
   ctx.response.body = { success: true, data: rows };
 });
