@@ -56,9 +56,9 @@ learnStatusRouter.get("/api/profile/learn_status", async (ctx) => {
     return;
   }
   const rows = await client.query(
-    "SELECT context_id, err_count, time_record, created_at FROM learn_status WHERE user_email = ? ORDER BY context_id",
-    [user.email]
+    "SELECT context_id, err_count, time_record, created_at FROM learn_status WHERE user_id = ? ORDER BY context_id",
+    [user.id]
   );
-  console.log(`[${new Date().toISOString()}] [INFO] [learn_status.ts] user_email: ${user.email}, rows: ${JSON.stringify(rows)}`);
+  console.log(`[${new Date().toISOString()}] [INFO] [learn_status.ts] user_id: ${user.id}, rows: ${JSON.stringify(rows)}`);
   ctx.response.body = { success: true, data: rows };
 });
