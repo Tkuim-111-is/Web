@@ -1397,8 +1397,8 @@ th {
 .summary-table thead,
 .scenarios-table thead,
 .achievements-table thead {
-  background: var(--gradient-primary);
-  color: #fff;
+  background: #b8cde2;
+  color: #1a1a1a;
 }
 
 .summary-table th,

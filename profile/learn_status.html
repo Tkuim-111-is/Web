@@ -288,6 +288,14 @@
                     plugins: {
                         legend: { display: true, position: 'bottom' },
                         tooltip: {
+                            titleFont: {
+                                size: 28
+                            },
+                            bodyFont: {
+                                size: 24
+                            },
+                            padding: 20,
+                            cornerRadius: 8,
                             callbacks: {
                                 title: function(context) {
                                     const index = context[0].dataIndex;
@@ -333,6 +341,14 @@
                     plugins: {
                         legend: { display: true, position: 'bottom' },
                         tooltip: {
+                            titleFont: {
+                                size: 28
+                            },
+                            bodyFont: {
+                                size: 24
+                            },
+                            padding: 20,
+                            cornerRadius: 8,
                             callbacks: {
                                 title: function(context) {
                                     const index = context[0].dataIndex;
@@ -374,7 +390,7 @@
 
             // 按 context_id 分組顯示不同顏色
             const contexts = [...new Set(data.map(row => row.context_id))];
-            const colors = ['#7b7b7b', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#84cc16'];
+            const colors = ['#000000', '#FF2D2D', '#4DFFFF', '#00DB00', '#E1E100', '#0000E3', '#D3A4FF', '#7D4848'];
             
             const scatterDatasets = contexts.map((context, index) => ({
                 label: formatContextId(context),
@@ -399,6 +415,14 @@
                             position: 'bottom' 
                         },
                         tooltip: {
+                            titleFont: {
+                                size: 28
+                            },
+                            bodyFont: {
+                                size: 24
+                            },
+                            padding: 20,
+                            cornerRadius: 8,
                             callbacks: {
                                 title: function(context) {
                                     const datasetIndex = context[0].datasetIndex;
