@@ -192,11 +192,17 @@
             }
         }
 
-        // 時間格式化函數：秒 -> 分:秒
+        // 時間格式化函數：秒 -> 時:分:秒 或 分:秒
         function formatTime(seconds) {
-            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
             const remainingSeconds = seconds % 60;
-            return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+            
+            if (hours > 0) {
+                return `${hours}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+            } else {
+                return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+            }
         }
 
         // Context ID 對應表
@@ -316,7 +322,15 @@
                     },
                     scales: {
                         y: {
-                            beginAtZero: true
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1,
+                                callback: function(value) {
+                                    if (Number.isInteger(value)) {
+                                        return value;
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -456,6 +470,14 @@
                             title: {
                                 display: true,
                                 text: '錯誤次數'
+                            },
+                            ticks: {
+                                stepSize: 1,
+                                callback: function(value) {
+                                    if (Number.isInteger(value)) {
+                                        return value;
+                                    }
+                                }
                             }
                         },
                         y: {
@@ -479,7 +501,7 @@
         function updateSummary(data) {
             const totalTimeSeconds = data.reduce((sum, row) => sum + (row.time_record || 0), 0);
             const totalErr = data.reduce((sum, row) => sum + row.err_count, 0);
-            const averageErrorRate = data.length > 0 ? (totalErr / data.length).toFixed(2) : 0;
+            const averageErrorRate = data.length > 0 ? Math.round(totalErr / data.length) : 0;
             const totalTimeFormatted = formatTime(totalTimeSeconds);
             
             // 計算統計資料
@@ -543,7 +565,7 @@
                 {
                     item: '平均錯誤次數',
                     value: `<span class="highlight-error ${getErrorClass(avgErrors)}">${avgErrors}</span> 次`,
-                    rating: getRating(5 - parseFloat(avgErrors), [4, 2, 1]),
+                    rating: getRating(5 - avgErrors, [4, 2, 1]),
                     description: '每個情境的平均錯誤次數'
                 },
                 {
