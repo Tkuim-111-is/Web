@@ -1,0 +1,23 @@
+services:
+  deno:
+    container_name: deno-web-app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    networks:
+      - shared-network
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    env_file:
+      - .env
+    restart: unless-stopped
+    environment:
+      - PORT=8000
+      - HOST=0.0.0.0
+
+networks:
+  shared-network:
+    external: true

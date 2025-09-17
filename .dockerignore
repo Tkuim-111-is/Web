@@ -1,0 +1,25 @@
+# Git 相關
+.git
+.gitignore
+
+# 環境變數檔案
+.env
+
+# 編輯器相關
+.vscode
+.idea
+*.swp
+*.swo
+
+# 系統檔案
+.DS_Store
+Thumbs.db
+
+# Docker 相關
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# 其他不需要的檔案
+*.log
+node_modules/
