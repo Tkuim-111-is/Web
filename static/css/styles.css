@@ -1397,8 +1397,15 @@ th {
 .summary-table thead,
 .scenarios-table thead,
 .achievements-table thead {
-  background: #b8cde2;
-  color: #1a1a1a;
+  background: #f8f9fa !important;
+  color: #1a1a1a !important;
+}
+
+.summary-table thead th,
+.scenarios-table thead th,
+.achievements-table thead th {
+  background: #f8f9fa !important;
+  color: #1a1a1a !important;
 }
 
 .summary-table th,
