@@ -1,3 +1,4 @@
 .env
 /.github/deploy_scripts
 /logs
+node_modules
