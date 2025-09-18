@@ -8,5 +8,6 @@ data:
   HOST: "0.0.0.0"
   # 資料庫配置（非敏感資訊）
   DB_HOST: "localhost"
-  DB_NAME: "deno_web_db"
-  DB_PORT: "5432"
+  DB_NAME: "is_db"
+  DB_PORT: "3306"
+  
