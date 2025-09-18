@@ -98,11 +98,12 @@ jobs:
 
       - name: 創建部署配置文件
         run: |
+          IMAGE_TAG="${{ needs.build.outputs.image_tag }}"
           cat > docker-compose.deploy.yml << EOF
           services:
             deno:
               container_name: deno-web-app
-              image: ${{ needs.build.outputs.image_tag }}
+              image: ${IMAGE_TAG}
               networks:
                 - shared-network
               ports:
