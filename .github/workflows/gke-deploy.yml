@@ -78,6 +78,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            GIT_COMMIT_HASH=${{ github.sha }}
           
       - name: 驗證映像是否已推送
         if: github.event_name != 'pull_request'

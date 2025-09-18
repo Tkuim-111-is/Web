@@ -2,6 +2,7 @@ import { Application, Router, send } from "https://deno.land/x/oak/mod.ts";
 import { registerRouter } from "./api/auth/register.ts";
 import { loginRouter } from "./api/auth/login.ts";
 import { learnStatusRouter } from "./api/profile/learn_status.ts";
+import { versionRouter } from "./api/version.ts";
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
 import { jwtVerify } from "https://deno.land/x/jose@v5.3.0/jwt/verify.ts";
 
@@ -85,6 +86,9 @@ app.use(loginRouter.allowedMethods());
 
 app.use(learnStatusRouter.routes());
 app.use(learnStatusRouter.allowedMethods());
+
+app.use(versionRouter.routes());
+app.use(versionRouter.allowedMethods());
 
 // ==========================
 // 登出導回首頁
