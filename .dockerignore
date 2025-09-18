@@ -1,25 +1,53 @@
-# Git 相關
+# 版本控制
 .git
+.github
 .gitignore
 
-# 環境變數檔案
+# 開發環境
+node_modules
+npm-debug.log
 .env
+.env.local
+.env.development
+.env.test
+.env.production
+github-gke-deployer-key.json
+scripts
 
-# 編輯器相關
+# 編輯器文件
 .vscode
 .idea
 *.swp
 *.swo
 
-# 系統檔案
+# 系統文件
 .DS_Store
 Thumbs.db
+
+# 測試文件
+tests
+__tests__
+*.test.*
+*.spec.*
+
+# 日誌文件
+logs
+*.log
+
+# 構建文件
+dist
+build
+out
 
 # Docker 相關
 Dockerfile
 docker-compose.yml
 .dockerignore
 
-# 其他不需要的檔案
-*.log
-node_modules/
+# 部署腳本
+deploy.sh
+
+# 其他不需要的文件
+README.md
+LICENSE
+*.md

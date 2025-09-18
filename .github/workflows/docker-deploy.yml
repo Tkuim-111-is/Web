@@ -1,0 +1,145 @@
+name: Docker 構建與部署
+
+on:
+  push:
+    branches: ["develop", "release"]
+    tags: ["v*.*.*"]
+
+permissions:
+  id-token: write
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    name: 構建 Docker 映像
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+
+    steps:
+      - name: 檢出代碼
+        uses: actions/checkout@v4
+
+      - name: 設置 Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 登入容器註冊表
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 提取 Docker 元數據
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}},event=tag
+            type=semver,pattern={{major}}.{{minor}},event=tag
+            type=sha,format=short
+
+      - name: 構建並推送 Docker 映像
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: 部署到伺服器
+    needs: build
+    runs-on: [self-hosted, Linux, X64, deploy]
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+
+    steps:
+      - name: 檢出代碼
+        uses: actions/checkout@v4
+      
+      - name: 登入 Vault (OIDC)
+        uses: hashicorp/vault-action@v3
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: jwt
+          path: jwt
+          role: gha-repo-deploy
+          exportToken: true
+          jwtGithubAudience: sigstore
+
+      - name: 獲取短期 SSH 憑證
+        env:
+          VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v vault >/dev/null || { echo "Vault CLI not found on runner"; exit 1; }
+          ssh-keygen -t ed25519 -N "" -f key
+          vault write -field=signed_key ssh/sign/gha-deploy \
+            public_key=@key.pub ttl=60s > key-cert.pub
+          ssh-keygen -L -f key-cert.pub
+
+      - name: 準備 known_hosts
+        run: echo "${{ secrets.KNOWN_HOSTS_LINE }}" >> known_hosts
+
+      - name: 創建部署配置文件
+        run: |
+          cat > docker-compose.deploy.yml << EOF
+          services:
+            deno:
+              container_name: deno-web-app
+              image: ${{ needs.build.outputs.image_tag }}
+              networks:
+                - shared-network
+              ports:
+                - "8000:8000"
+              env_file:
+                - .env
+              restart: unless-stopped
+              environment:
+                - PORT=8000
+                - HOST=0.0.0.0
+
+          networks:
+            shared-network:
+              external: true
+          EOF
+
+      - name: 複製配置並部署
+        env:
+          VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+          HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_OPTS: "-i key -o CertificateFile=key-cert.pub -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=known_hosts"
+        run: |
+          set -euo pipefail
+          RSYNC_SSH="ssh -p $SSH_PORT $SSH_OPTS"
+
+          # 複製 docker-compose 部署文件
+          rsync -avz \
+            -e "$RSYNC_SSH" \
+            docker-compose.deploy.yml deployer@$HOST:/home/deployer/web/docker-compose.yml
+
+          # 登入 Docker 註冊表並部署
+          $RSYNC_SSH deployer@$HOST "cd /home/deployer/web && \
+            echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u ${{ github.actor }} --password-stdin && \
+            docker compose pull && \
+            docker compose up -d && \
+            docker image prune -f"
+
+      - name: 清理
+        if: always()
+        run: |
+          shred -u key key.pub key-cert.pub || true
+          rm -f known_hosts docker-compose.deploy.yml
