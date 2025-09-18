@@ -117,8 +117,8 @@ jobs:
             --docker-email=${{ github.actor }}@users.noreply.github.com \
             --dry-run=client -o yaml | kubectl apply -f -
             
-          # 修改 deployment.yaml 添加 imagePullSecrets
-          sed -i '/imagePullPolicy: Always/a\        imagePullSecrets:\n        - name: ghcr-auth' deployment.yaml
+          # 修改 deployment.yaml 添加 imagePullSecrets (在正確的位置)
+          sed -i '/spec:/a\      imagePullSecrets:\n      - name: ghcr-auth' deployment.yaml
           
           echo "添加 imagePullSecrets 後的 deployment.yaml："
           cat deployment.yaml
