@@ -70,11 +70,15 @@ jobs:
       - name: 檢出代碼
         uses: actions/checkout@v4
 
+      - name: 驗證 Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GKE_SA_KEY }}
+          project_id: ${{ env.PROJECT_ID }}
+
       - name: 設置 gcloud CLI
         uses: google-github-actions/setup-gcloud@v2
         with:
-          project_id: ${{ env.PROJECT_ID }}
-          service_account_key: ${{ secrets.GKE_SA_KEY }}
           install_components: 'gke-gcloud-auth-plugin'
 
       - name: 設置 Kubernetes 工具
