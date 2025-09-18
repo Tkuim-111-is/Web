@@ -112,5 +112,5 @@ jobs:
 
       - name: 驗證部署
         run: |
-          kubectl get services -o wide
+          kubectl get services -n deno-web -o wide
           echo "部署完成！應用已成功部署到 GKE。"
