@@ -16,4 +16,4 @@ EXPOSE 8000
 ENV HOST=0.0.0.0
 
 # 啟動應用
-CMD ["run", "--allow-net", "--allow-read", "--allow-env", "--allow-write", "server.ts"]
+CMD ["deno", "run", "--allow-net", "--allow-read", "--allow-env", "--allow-write", "server.ts"]

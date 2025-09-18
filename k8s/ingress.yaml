@@ -3,11 +3,11 @@ kind: Ingress
 metadata:
   name: deno-web-app-ingress
   annotations:
-    kubernetes.io/ingress.class: "gce"
     # 如果您使用 HTTPS，請取消註釋以下行
     # kubernetes.io/ingress.global-static-ip-name: "web-static-ip"
     # networking.gke.io/managed-certificates: "web-cert"
 spec:
+  ingressClassName: gce
   rules:
   - http:
       paths:
