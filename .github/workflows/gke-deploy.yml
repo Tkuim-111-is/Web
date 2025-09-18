@@ -5,6 +5,10 @@ on:
     branches: ["develop", "release"]
     tags: ["v*.*.*"]
 
+permissions:
+  contents: read
+  packages: write
+
 env:
   PROJECT_ID: ${{ secrets.GKE_PROJECT }}
   GKE_CLUSTER: ${{ secrets.GKE_CLUSTER }}
