@@ -2,8 +2,10 @@ name: 構建並部署到 GKE
 
 on:
   push:
-    branches: ["develop", "release","Add/Docker"]
+    branches: ["develop", "release", "Add/Docker"]
     tags: ["v*.*.*"]
+  pull_request:
+    branches: ["develop", "release"]
 
 permissions:
   contents: read
@@ -35,6 +37,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: 登入容器註冊表
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -52,19 +55,40 @@ jobs:
             echo "tag=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${BRANCH}-${SHORT_SHA}" >> $GITHUB_OUTPUT
           fi
 
+      - name: 提取 Docker 元數據
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}},event=tag
+            type=semver,pattern={{major}}.{{minor}},event=tag
+            type=sha,format=short
+
       - name: 構建並推送 Docker 映像
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.image-tag.outputs.tag }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          
+      - name: 驗證映像是否已推送
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "檢查映像是否已成功推送: ${{ steps.image-tag.outputs.tag }}"
+          # 使用 GitHub 令牌獲取映像清單
+          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://ghcr.io/v2/${{ env.IMAGE_NAME }}/tags/list || echo "映像可能已推送但無法驗證"
 
   deploy:
     name: 部署到 GKE
     needs: build
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
 
     steps:
       - name: 檢出代碼
@@ -97,9 +121,11 @@ jobs:
         run: |
           cd k8s
           
-          # 替換映像標籤
+          # 替換映像標籤，確保不會有變數替換問題
           IMAGE_TAG="${{ needs.build.outputs.image_tag }}"
-          sed -i "s|image: \${IMAGE_NAME}:\${IMAGE_TAG}|image: $IMAGE_TAG|g" deployment.yaml
+          echo "使用映像標籤: $IMAGE_TAG"
+          # 直接使用具體的映像標籤，避免變數替換問題
+          sed -i "s|image: .*|image: $IMAGE_TAG|g" deployment.yaml
           
           # 顯示替換後的部署文件
           echo "替換後的 deployment.yaml 內容："
@@ -116,10 +142,16 @@ jobs:
             --docker-password=${{ secrets.GITHUB_TOKEN }} \
             --docker-email=${{ github.actor }}@users.noreply.github.com \
             --dry-run=client -o yaml | kubectl apply -f -
+          
+          # 檢查 Secret 是否正確創建
+          kubectl get secret ghcr-auth -n deno-web -o yaml | grep -v "password"
             
-          # 修改 deployment.yaml 添加 imagePullSecrets (在正確的位置)
-          # 在 template.spec 下添加 imagePullSecrets
-          sed -i '/template:/,/containers:/ s/spec:/spec:\n      imagePullSecrets:\n      - name: ghcr-auth/' deployment.yaml
+          # 修改 deployment.yaml 添加 imagePullSecrets
+          # 檢查是否已有 imagePullSecrets
+          if ! grep -q "imagePullSecrets" deployment.yaml; then
+            # 在 template.spec 下添加 imagePullSecrets
+            sed -i '/template:/,/containers:/ s/spec:/spec:\n      imagePullSecrets:\n      - name: ghcr-auth/' deployment.yaml
+          fi
           
           echo "添加 imagePullSecrets 後的 deployment.yaml："
           cat deployment.yaml
@@ -127,7 +159,10 @@ jobs:
       - name: 部署到 GKE
         run: |
           cd k8s
-          kustomize build . | kubectl apply -f -
+          kustomize build . > generated-manifests.yaml
+          echo "生成的部署清單："
+          cat generated-manifests.yaml
+          kubectl apply -f generated-manifests.yaml
           
           # 檢查映像拉取狀態
           echo "檢查 Pod 狀態..."
