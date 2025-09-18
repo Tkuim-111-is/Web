@@ -90,7 +90,7 @@ app.use(learnStatusRouter.allowedMethods());
 // 登出導回首頁
 // ==========================
 router.get("/logout", (ctx) => {
-  localStorage.removeItem('token');
+  // 清除客戶端的 token 通過重定向到首頁
   ctx.response.redirect("/index.html");
 });
 
