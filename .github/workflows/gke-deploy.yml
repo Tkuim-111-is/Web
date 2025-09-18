@@ -2,7 +2,7 @@ name: 構建並部署到 GKE
 
 on:
   push:
-    branches: ["develop", "release"]
+    branches: ["develop", "release","Add/Docker"]
     tags: ["v*.*.*"]
 
 permissions:
