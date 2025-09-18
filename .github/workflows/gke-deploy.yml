@@ -99,7 +99,11 @@ jobs:
           
           # 替換映像標籤
           IMAGE_TAG="${{ needs.build.outputs.image_tag }}"
-          sed -i "s|\${IMAGE_NAME}:.*|\${IMAGE_TAG}|g" deployment.yaml
+          sed -i "s|image: \${IMAGE_NAME}:\${IMAGE_TAG}|image: $IMAGE_TAG|g" deployment.yaml
+          
+          # 顯示替換後的部署文件
+          echo "替換後的 deployment.yaml 內容："
+          cat deployment.yaml
           
           # 創建命名空間（如果不存在）
           kubectl create namespace deno-web --dry-run=client -o yaml | kubectl apply -f -
