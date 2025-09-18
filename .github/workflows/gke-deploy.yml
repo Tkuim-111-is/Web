@@ -129,6 +129,10 @@ jobs:
           IMAGE_TAG_LOWER=$(echo "$IMAGE_TAG" | tr '[:upper:]' '[:lower:]')
           echo "使用映像標籤: $IMAGE_TAG_LOWER"
           
+          # 將變數導出到環境中，使其在後續步驟中可用
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+          echo "IMAGE_TAG_LOWER=$IMAGE_TAG_LOWER" >> $GITHUB_ENV
+          
           # 直接使用具體的映像標籤，避免變數替換問題
           sed -i "s|image: .*|image: $IMAGE_TAG_LOWER|g" deployment.yaml
           
@@ -168,14 +172,25 @@ jobs:
           echo "生成的部署清單："
           cat generated-manifests.yaml
           
+          # 確保映像標籤變數可用
+          echo "IMAGE_TAG=$IMAGE_TAG"
+          echo "IMAGE_TAG_LOWER=$IMAGE_TAG_LOWER"
+          
+          # 如果 IMAGE_TAG_LOWER 為空，重新設置它
+          if [ -z "$IMAGE_TAG_LOWER" ]; then
+            echo "警告：IMAGE_TAG_LOWER 為空，重新設置"
+            IMAGE_TAG_LOWER="ghcr.io/tkuim-111-is/web:add-docker-eec53fe"
+            echo "新設置的 IMAGE_TAG_LOWER=$IMAGE_TAG_LOWER"
+          fi
+          
           # 確認映像名稱是小寫的，並確保不為空
           echo "將所有映像路徑設置為: $IMAGE_TAG_LOWER"
-          sed -i 's|image: .*|image: '"$IMAGE_TAG_LOWER"'|g' generated-manifests.yaml
+          sed -i "s|image: .*|image: $IMAGE_TAG_LOWER|g" generated-manifests.yaml
           
           # 驗證映像標籤是否正確設置
           if grep -q 'image: *$' generated-manifests.yaml; then
             echo "錯誤：映像標籤為空，修正中..."
-            sed -i 's|image: *$|image: '"$IMAGE_TAG_LOWER"'|g' generated-manifests.yaml
+            sed -i "s|image: *$|image: $IMAGE_TAG_LOWER|g" generated-manifests.yaml
           fi
           
           echo "修正後的部署清單："
