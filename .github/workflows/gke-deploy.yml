@@ -107,6 +107,21 @@ jobs:
           
           # 創建命名空間（如果不存在）
           kubectl create namespace deno-web --dry-run=client -o yaml | kubectl apply -f -
+          
+          # 創建用於拉取 GitHub 容器的 Secret
+          kubectl create secret docker-registry ghcr-auth \
+            --namespace=deno-web \
+            --docker-server=ghcr.io \
+            --docker-username=${{ github.actor }} \
+            --docker-password=${{ secrets.GITHUB_TOKEN }} \
+            --docker-email=${{ github.actor }}@users.noreply.github.com \
+            --dry-run=client -o yaml | kubectl apply -f -
+            
+          # 修改 deployment.yaml 添加 imagePullSecrets
+          sed -i '/imagePullPolicy: Always/a\        imagePullSecrets:\n        - name: ghcr-auth' deployment.yaml
+          
+          echo "添加 imagePullSecrets 後的 deployment.yaml："
+          cat deployment.yaml
 
       - name: 部署到 GKE
         run: |
