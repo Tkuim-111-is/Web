@@ -1,0 +1,105 @@
+name: 構建並部署到 GKE
+
+on:
+  push:
+    branches: ["develop", "release"]
+    tags: ["v*.*.*"]
+
+env:
+  PROJECT_ID: ${{ secrets.GKE_PROJECT }}
+  GKE_CLUSTER: ${{ secrets.GKE_CLUSTER }}
+  GKE_ZONE: ${{ secrets.GKE_ZONE }}
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  DEPLOYMENT_NAME: deno-web-app
+
+jobs:
+  build:
+    name: 構建並推送 Docker 映像
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.image-tag.outputs.tag }}
+
+    steps:
+      - name: 檢出代碼
+        uses: actions/checkout@v4
+
+      - name: 設置 Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 登入容器註冊表
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 設置映像標籤
+        id: image-tag
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "tag=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+            BRANCH=$(echo ${{ github.ref_name }} | sed 's/\//-/g')
+            echo "tag=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${BRANCH}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 構建並推送 Docker 映像
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.image-tag.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: 部署到 GKE
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 檢出代碼
+        uses: actions/checkout@v4
+
+      - name: 設置 gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          service_account_key: ${{ secrets.GKE_SA_KEY }}
+          install_components: 'gke-gcloud-auth-plugin'
+
+      - name: 設置 Kubernetes 工具
+        uses: azure/setup-kubectl@v3
+
+      - name: 設置 Kustomize
+        uses: imranismail/setup-kustomize@v2
+
+      - name: 獲取 GKE 憑證
+        run: |
+          gcloud container clusters get-credentials ${{ env.GKE_CLUSTER }} \
+            --zone ${{ env.GKE_ZONE }} \
+            --project ${{ env.PROJECT_ID }}
+
+      - name: 準備 Kubernetes 配置
+        run: |
+          cd k8s
+          
+          # 替換映像標籤
+          IMAGE_TAG="${{ needs.build.outputs.image_tag }}"
+          sed -i "s|\${IMAGE_NAME}:.*|\${IMAGE_TAG}|g" deployment.yaml
+          
+          # 創建命名空間（如果不存在）
+          kubectl create namespace deno-web --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: 部署到 GKE
+        run: |
+          cd k8s
+          kustomize build . | kubectl apply -f -
+          kubectl rollout status deployment/${{ env.DEPLOYMENT_NAME }} -n deno-web --timeout=300s
+
+      - name: 驗證部署
+        run: |
+          kubectl get services -o wide
+          echo "部署完成！應用已成功部署到 GKE。"

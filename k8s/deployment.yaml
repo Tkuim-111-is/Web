@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deno-web-app
+  labels:
+    app: deno-web-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: deno-web-app
+  template:
+    metadata:
+      labels:
+        app: deno-web-app
+    spec:
+      containers:
+      - name: deno-web-app
+        image: ${IMAGE_NAME}:${IMAGE_TAG}
+        ports:
+        - containerPort: 8000
+        env:
+        - name: PORT
+          value: "8000"
+        - name: HOST
+          value: "0.0.0.0"
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
