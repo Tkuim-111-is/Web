@@ -108,9 +108,30 @@ jobs:
         run: |
           cd k8s
           kustomize build . | kubectl apply -f -
-          kubectl rollout status deployment/${{ env.DEPLOYMENT_NAME }} -n deno-web --timeout=300s
+          
+          # 檢查映像拉取狀態
+          echo "檢查 Pod 狀態..."
+          kubectl get pods -n deno-web -o wide
+          
+          # 檢查 Pod 事件
+          echo "檢查 Pod 事件..."
+          kubectl get events -n deno-web --sort-by='.lastTimestamp'
+          
+          # 嘗試獲取部署狀態，增加超時時間
+          kubectl rollout status deployment/${{ env.DEPLOYMENT_NAME }} -n deno-web --timeout=600s
 
       - name: 驗證部署
+        if: success() || failure()  # 即使前一步驟失敗也執行
         run: |
-          kubectl get services -n deno-web -o wide
+          echo "檢查部署資源狀態..."
+          kubectl get deployments,pods,services,ingress -n deno-web -o wide
+          
+          # 檢查 Pod 日誌
+          echo "檢查 Pod 日誌..."
+          PODS=$(kubectl get pods -n deno-web -l app=deno-web-app -o jsonpath='{.items[*].metadata.name}')
+          for POD in $PODS; do
+            echo "Pod $POD 的日誌:"
+            kubectl logs -n deno-web $POD --tail=50 || echo "無法獲取日誌"
+          done
+          
           echo "部署完成！應用已成功部署到 GKE。"

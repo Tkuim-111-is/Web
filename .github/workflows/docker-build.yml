@@ -2,7 +2,7 @@ name: 構建並發布 Docker 映像
 
 on:
   push:
-    branches: ["develop", "release"]
+    branches: ["develop", "release","Add/Docker"]
     tags: ["v*.*.*"]
   pull_request:
     branches: ["develop", "release"]
