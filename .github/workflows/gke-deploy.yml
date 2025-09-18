@@ -10,7 +10,7 @@ env:
   GKE_CLUSTER: ${{ secrets.GKE_CLUSTER }}
   GKE_ZONE: ${{ secrets.GKE_ZONE }}
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository | toLowerCase }}
+  IMAGE_NAME: ${{ github.repository }}
   DEPLOYMENT_NAME: deno-web-app
 
 jobs:
@@ -21,6 +21,9 @@ jobs:
       image_tag: ${{ steps.image-tag.outputs.tag }}
 
     steps:
+      - name: downcase IMAGE_NAME
+        run: |
+          echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >>${GITHUB_ENV}
       - name: 檢出代碼
         uses: actions/checkout@v4
 
