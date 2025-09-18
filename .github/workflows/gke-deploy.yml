@@ -118,7 +118,7 @@ jobs:
             --dry-run=client -o yaml | kubectl apply -f -
             
           # 修改 deployment.yaml 添加 imagePullSecrets (在正確的位置)
-          sed -i '/spec:/,/containers:/ {/template:/,/containers:/ {/spec:/a\\      imagePullSecrets:\n      - name: ghcr-auth}}' deployment.yaml
+          sed -i '/spec:/,/containers:/ s/spec:/spec:\n      imagePullSecrets:\n      - name: ghcr-auth/' deployment.yaml
           
           echo "添加 imagePullSecrets 後的 deployment.yaml："
           cat deployment.yaml
