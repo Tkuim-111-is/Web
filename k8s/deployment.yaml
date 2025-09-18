@@ -14,15 +14,19 @@ spec:
       labels:
         app: deno-web-app
     spec:
+      imagePullSecrets:
+      - name: ghcr-auth
       containers:
       - name: deno-web-app
-        image: ${IMAGE_NAME}:${IMAGE_TAG}
+        image: ghcr.io/tkuim-111-is/web:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
         envFrom:
         - configMapRef:
             name: deno-web-app-config
+        - secretRef:
+            name: deno-web-app-secret
         resources:
           limits:
             cpu: "500m"

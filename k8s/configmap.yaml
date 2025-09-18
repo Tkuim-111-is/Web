@@ -3,12 +3,10 @@ kind: ConfigMap
 metadata:
   name: deno-web-app-config
 data:
-  # 在這裡添加您的配置
+  # 應用配置
   PORT: "8000"
   HOST: "0.0.0.0"
-  # 添加缺少的環境變數
-  JWT_SECRET: "your-jwt-secret-key-here"
+  # 資料庫配置（非敏感資訊）
   DB_HOST: "localhost"
   DB_NAME: "deno_web_db"
-  DB_PASS: "db_password"
   DB_PORT: "5432"
