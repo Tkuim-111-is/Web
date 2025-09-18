@@ -168,14 +168,18 @@ jobs:
           echo "生成的部署清單："
           cat generated-manifests.yaml
           
-          # 確認映像名稱是小寫的
-          if grep -q '[A-Z]' generated-manifests.yaml; then
-            echo "警告：部署清單中存在大寫字母，可能導致映像拉取失敗"
-            echo "將所有映像路徑轉換為小寫"
-            sed -i 's|image: .*|image: '$(echo "$IMAGE_TAG_LOWER" | sed 's/|/\\|/g')'|g' generated-manifests.yaml
-            echo "修正後的部署清單："
-            cat generated-manifests.yaml
+          # 確認映像名稱是小寫的，並確保不為空
+          echo "將所有映像路徑設置為: $IMAGE_TAG_LOWER"
+          sed -i 's|image: .*|image: '"$IMAGE_TAG_LOWER"'|g' generated-manifests.yaml
+          
+          # 驗證映像標籤是否正確設置
+          if grep -q 'image: *$' generated-manifests.yaml; then
+            echo "錯誤：映像標籤為空，修正中..."
+            sed -i 's|image: *$|image: '"$IMAGE_TAG_LOWER"'|g' generated-manifests.yaml
           fi
+          
+          echo "修正後的部署清單："
+          cat generated-manifests.yaml
           
           kubectl apply -f generated-manifests.yaml
           

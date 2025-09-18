@@ -20,11 +20,9 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
-        env:
-        - name: PORT
-          value: "8000"
-        - name: HOST
-          value: "0.0.0.0"
+        envFrom:
+        - configMapRef:
+            name: deno-web-app-config
         resources:
           limits:
             cpu: "500m"
