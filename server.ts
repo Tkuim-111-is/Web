@@ -149,7 +149,7 @@ router.get("/(.*)", async (ctx) => {
 // ==========================
 app.use(router.routes());
 app.use(router.allowedMethods());
-const port = parseInt(Deno.env.get("PORT") ?? "8000");
-
+const port = parseInt(Deno.env.get("PORT") ?? "");
+const host = String(Deno.env.get("HOST") ?? "");
 console.log(`[${new Date().toISOString()}] [INFO] [server.ts] Server is running at http://localhost:${port}`);
-await app.listen({ port });
+await app.listen({ port, hostname: host });

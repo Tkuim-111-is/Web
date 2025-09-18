@@ -5,21 +5,17 @@ import "https://deno.land/std@0.224.0/dotenv/load.ts";
 
 // 讀取資料庫設定
 const dbConfig = {
-  hostname: Deno.env.get("DB_HOST") ?? "localhost",
-  username: Deno.env.get("DB_USER") ?? "root",
+  hostname: Deno.env.get("DB_HOST") ?? "",
+  username: Deno.env.get("DB_USER") ?? "",
   password: Deno.env.get("DB_PASS") ?? "",
-  db: Deno.env.get("DB_NAME") ?? "test_db",
+  db: Deno.env.get("DB_NAME") ?? "",
+  debug: false,
 };
 
 const client = await new Client().connect(dbConfig);
 
 // 創建路由處理註冊請求
 export const registerRouter = new Router();
-const JWT_SECRET_RAW = Deno.env.get("JWT_SECRET");
-if (!JWT_SECRET_RAW) {
-  throw new Error("JWT_SECRET 未設定");
-}
-const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_RAW);
 
 registerRouter.post("/api/auth/register", async (ctx) => {
   try {
@@ -51,13 +47,14 @@ registerRouter.post("/api/auth/register", async (ctx) => {
       const hashedPassword = await bcrypt.hash(password, salt);
 
       // 將用戶資料插入資料庫
-      await client.execute(
+      const insertResult = await client.execute(
         `INSERT INTO users (email, password) 
          values (?, ?)`,
         [email, hashedPassword]
       );
 
-      ctx.response.body = { success: true };
+      const userId = insertResult.lastInsertId;
+      ctx.response.body = { success: true, id: userId };
     } else {
       ctx.response.status = 400;
       ctx.response.body = { success: false, message: "沒有提供請求數據" };

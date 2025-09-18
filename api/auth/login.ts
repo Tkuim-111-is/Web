@@ -4,17 +4,15 @@ import * as bcrypt from "https://deno.land/x/bcrypt/mod.ts";
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
 import { SignJWT } from "https://deno.land/x/jose@v5.3.0/jwt/sign.ts";
 
-// 讀取資料庫設定
 const dbConfig = {
-  hostname: Deno.env.get("DB_HOST") ?? "localhost",
-  username: Deno.env.get("DB_USER") ?? "root",
+  hostname: Deno.env.get("DB_HOST") ?? "",
+  username: Deno.env.get("DB_USER") ?? "",
   password: Deno.env.get("DB_PASS") ?? "",
-  db: Deno.env.get("DB_NAME") ?? "test_db",
+  db: Deno.env.get("DB_NAME") ?? "",
+  debug: false,
 };
 
 const client = await new Client().connect(dbConfig);
-
-// export const sessions = new Map();
 
 // 創建路由處理註冊請求
 export const loginRouter = new Router();
@@ -22,7 +20,7 @@ const JWT_SECRET_RAW = Deno.env.get("JWT_SECRET");
 if (!JWT_SECRET_RAW) {
   throw new Error("JWT_SECRET 未設定");
 }
-const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_RAW); // 這一行很重要！
+const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_RAW);
 
 loginRouter.post("/api/auth/login", async (ctx) => {
   try {
@@ -32,8 +30,6 @@ loginRouter.post("/api/auth/login", async (ctx) => {
         `SELECT * FROM users WHERE email = ?`,
         [email]
       );
-
-      // console.log("User query result:", users); // 顯示用戶查詢結果
 
       if (users.length === 0) {
         ctx.response.status = 401;
@@ -62,13 +58,13 @@ loginRouter.post("/api/auth/login", async (ctx) => {
         .setExpirationTime("1d")
         .sign(JWT_SECRET);
 
-      ctx.response.body = { success: true, token: jwt };
+      ctx.response.body = { success: true, id: user.id, token: jwt };
     } else {
       ctx.response.status = 400;
       ctx.response.body = { success: false, message: "缺少請求資料" };
     }
   } catch (error) {
     ctx.response.status = 500;
-    ctx.response.body = { success: false, message: "伺服器錯誤", error: error.message };
+    ctx.response.body = { success: false, message: "伺服器錯誤", error: error instanceof Error ? error.message : String(error) };
   }
 });
