@@ -121,8 +121,12 @@ metadata:
   name: deno-web-app-ingress
   namespace: deno-web-app
   annotations:
-    kubernetes.io/ingress.class: "gce"
+    # 如果需要靜態 IP，取消下面註釋
+    # kubernetes.io/ingress.global-static-ip-name: "deno-web-app-ip"
+    # 如果需要 SSL 憑證，取消下面註釋  
+    # networking.gke.io/managed-certificates: "deno-web-app-cert"
 spec:
+  ingressClassName: gce
   rules:
   - http:
       paths:

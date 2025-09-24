@@ -94,13 +94,14 @@ kubectl get ingress -n deno-web-app
 | `k8s-deployment.yaml` | K8s 部署配置 | 定義如何將 Secret 作為環境變數注入，包含 Ingress 配置 |
 | `deploy-with-env.sh` | 本地部署腳本 | 互動式部署工具 |
 | `test-ingress-config.sh` | Ingress 配置測試 | 驗證 Ingress 配置是否正確 |
+| `fix-deployment-labels.sh` | 部署修復工具 | 修復 Helm 到 kubectl 轉換的標籤不匹配問題 |
 | `ENVIRONMENT-VARIABLES-GUIDE.md` | 使用指南 | 本文檔 |
 
 ### 更新文件
 
 | 文件名 | 更新內容 |
 |--------|----------|
-| `.github/workflows/gke-deploy.yml` | 移除 Helm，添加 kubectl 部署步驟 |
+| `.github/workflows/gke-deploy.yml` | 移除 Helm，添加 kubectl 部署步驟和智能 Deployment 處理 |
 
 ## 應用程式密鑰讀取
 
@@ -263,7 +264,28 @@ kubectl rollout undo deployment/deno-web-app -n deno-web-app
 
 ### 常見問題
 
-1. **Pod 無法啟動**
+1. **Deployment selector 不匹配錯誤**
+   
+   **錯誤信息：**
+   ```
+   The Deployment "deno-web-app" is invalid: spec.selector: Invalid value: 
+   v1.LabelSelector{MatchLabels:map[string]string{"app":"deno-web-app", 
+   "app.kubernetes.io/instance":"deno-web-app", "app.kubernetes.io/name":"deno-web-app"}}
+   ```
+   
+   **原因：** 現有 Deployment 是 Helm 創建的，包含額外標籤，而新配置只有簡單標籤。
+   
+   **解決方案：**
+   ```bash
+   # 自動修復腳本
+   ./fix-deployment-labels.sh
+   
+   # 或手動刪除並重新創建
+   kubectl delete deployment deno-web-app -n deno-web-app
+   kubectl apply -f k8s-deployment.yaml
+   ```
+
+2. **Pod 無法啟動**
    ```bash
    # 檢查 Secret 是否存在
    kubectl get secret deno-web-app-secret -n deno-web-app
@@ -272,7 +294,7 @@ kubectl rollout undo deployment/deno-web-app -n deno-web-app
    kubectl describe pod -l app=deno-web-app -n deno-web-app
    ```
 
-2. **環境變數未載入**
+3. **環境變數未載入**
    ```bash
    # 檢查部署配置
    kubectl get deployment deno-web-app -n deno-web-app -o yaml | grep -A 20 env:
@@ -281,7 +303,7 @@ kubectl rollout undo deployment/deno-web-app -n deno-web-app
    kubectl get secret deno-web-app-secret -n deno-web-app -o jsonpath='{.data}' | jq 'keys'
    ```
 
-3. **應用程式無法讀取密鑰**
+4. **應用程式無法讀取密鑰**
    ```bash
    # 檢查應用程式日誌
    kubectl logs -f deployment/deno-web-app -n deno-web-app
@@ -289,6 +311,16 @@ kubectl rollout undo deployment/deno-web-app -n deno-web-app
    # 進入 Pod 檢查環境變數
    kubectl exec -it deployment/deno-web-app -n deno-web-app -- env | grep -E '(JWT|DB)'
    ```
+
+5. **Ingress 警告**
+   
+   **警告信息：**
+   ```
+   Warning: annotation "kubernetes.io/ingress.class" is deprecated, 
+   please use 'spec.ingressClassName' instead
+   ```
+   
+   **說明：** 這個警告已在新版本配置中修復，使用 `spec.ingressClassName: gce`。
 
 ## 與其他方案比較
 

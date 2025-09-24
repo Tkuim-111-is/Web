@@ -167,6 +167,31 @@ jobs:
             exit 1
           fi
 
+      - name: 處理現有 Deployment
+        run: |
+          echo "檢查現有 Deployment..."
+          if kubectl get deployment deno-web-app -n ${{ env.DEPLOYMENT_NAME }} >/dev/null 2>&1; then
+            echo "發現現有 Deployment，檢查標籤兼容性..."
+            
+            # 檢查是否是 Helm 創建的 (包含額外標籤)
+            HELM_LABELS=$(kubectl get deployment deno-web-app -n ${{ env.DEPLOYMENT_NAME }} -o jsonpath='{.spec.selector.matchLabels}' | grep -o 'app\.kubernetes\.io' || echo "")
+            
+            if [[ -n "${HELM_LABELS}" ]]; then
+              echo "⚠️  檢測到 Helm 創建的 Deployment，需要刪除並重新創建"
+              echo "刪除現有 Deployment..."
+              kubectl delete deployment deno-web-app -n ${{ env.DEPLOYMENT_NAME }}
+              
+              echo "等待 Pod 清理完成..."
+              kubectl wait --for=delete pods -l "app.kubernetes.io/name=deno-web-app" -n ${{ env.DEPLOYMENT_NAME }} --timeout=120s || true
+              
+              echo "✅ 現有 Deployment 已清理"
+            else
+              echo "✅ 現有 Deployment 標籤兼容，可以直接更新"
+            fi
+          else
+            echo "✅ 沒有現有 Deployment，可以直接創建"
+          fi
+
       - name: 部署應用程式到 GKE
         run: |
           echo "準備部署配置文件..."
