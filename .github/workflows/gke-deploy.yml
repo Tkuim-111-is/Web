@@ -37,10 +37,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 設置 Helm
-        uses: azure/setup-helm@v4.3.1
-        with:
-          version: '4.3.1'
-        id: install
+        uses: Azure/setup-helm@v4.3.1
 
       - name: 設置 Docker Buildx
         uses: docker/setup-buildx-action@v3
