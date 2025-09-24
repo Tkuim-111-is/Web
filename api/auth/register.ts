@@ -1,4 +1,4 @@
-import { Router } from "https://deno.land/x/oak/mod.ts";
+import { Router } from "https://deno.land/x/oak@v17.1.6/mod.ts";
 import { Client } from "https://deno.land/x/mysql/mod.ts";
 import * as bcrypt from "https://deno.land/x/bcrypt/mod.ts";
 import "https://deno.land/std@0.224.0/dotenv/load.ts";

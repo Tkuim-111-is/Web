@@ -1,4 +1,4 @@
-import { Application, Router, send, type Context, type Next } from "https://deno.land/x/oak@v17.1.4/mod.ts";
+import { Application, Router, send, type Context, type Next } from "https://deno.land/x/oak@v17.1.6/mod.ts";
 import { registerRouter } from "./api/auth/register.ts";
 import { loginRouter } from "./api/auth/login.ts";
 import { learnStatusRouter } from "./api/profile/learn_status.ts";
