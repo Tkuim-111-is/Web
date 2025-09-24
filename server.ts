@@ -1,4 +1,4 @@
-import { Application, Router, send } from "https://deno.land/x/oak/mod.ts";
+import { Application, Router, send, Context, Next, RouteParams } from "https://deno.land/x/oak@v17.1.4/mod.ts";
 import { registerRouter } from "./api/auth/register.ts";
 import { loginRouter } from "./api/auth/login.ts";
 import { learnStatusRouter } from "./api/profile/learn_status.ts";
@@ -17,7 +17,7 @@ const router = new Router();
 // ==========================
 
 // 解析 JSON 主體
-app.use(async (ctx, next) => {
+app.use(async (ctx: Context, next: Next) => {
   if (ctx.request.hasBody) {
     try {
       const body = await ctx.request.body.json();
@@ -33,7 +33,7 @@ app.use(async (ctx, next) => {
 });
 
 // JWT 驗證：將驗證結果存入 ctx.state.user
-app.use(async (ctx, next) => {
+app.use(async (ctx: Context, next: Next) => {
   const auth = ctx.request.headers.get("Authorization");
   if (auth && auth.startsWith("Bearer ")) {
     const jwt = auth.replace("Bearer ", "");
@@ -47,7 +47,7 @@ app.use(async (ctx, next) => {
   await next();
 });
 
-app.use(async (ctx, next) => {
+app.use(async (ctx: Context, next: Next) => {
   const filePath = ctx.request.url.pathname;
   if (filePath.startsWith("/favicon") || filePath === "/favicon.ico" || filePath === "/site.webmanifest") {
     await send(ctx, filePath, {
@@ -59,7 +59,7 @@ app.use(async (ctx, next) => {
 });
 
 // 靜態檔案服務：處理 /static 路徑
-app.use(async (ctx, next) => {
+app.use(async (ctx: Context, next: Next) => {
   try {
     const path = ctx.request.url.pathname;
     if (path.startsWith("/static")) {
@@ -89,7 +89,7 @@ app.use(learnStatusRouter.allowedMethods());
 // ==========================
 // 登出導回首頁
 // ==========================
-router.get("/logout", (ctx) => {
+router.get("/logout", (ctx: Context) => {
   // 清除客戶端的 token 通過重定向到首頁
   ctx.response.redirect("/index.html");
 });
@@ -97,7 +97,7 @@ router.get("/logout", (ctx) => {
 // ==========================
 // 路由保護：/profile/*.html 頁面
 // ==========================
-router.get("/api/:apiName", async (ctx, next) => {
+router.get("/api/:apiName", async (ctx: Context, next: Next) => {
   // JWT 驗證
   if (!ctx.state.user) {
     ctx.response.status = 401;
@@ -108,7 +108,7 @@ router.get("/api/:apiName", async (ctx, next) => {
 });
 
 // 靜態頁面不驗證 JWT
-router.get("/profile/:page", async (ctx) => {
+router.get("/profile/:page", async (ctx: Context<any>) => {
   const requestedPage = ctx.params.page;
   const filePath = `/profile/${requestedPage}`;
   try {
@@ -125,7 +125,7 @@ router.get("/profile/:page", async (ctx) => {
 // ==========================
 // 一般 HTML 頁面處理
 // ==========================
-router.get("/(.*)", async (ctx) => {
+router.get("/(.*)", async (ctx: Context) => {
   try {
     const path = ctx.request.url.pathname;
     let filePath = path;
