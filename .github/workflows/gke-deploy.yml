@@ -18,6 +18,7 @@ env:
   GKE_ZONE: ${{ secrets.GKE_ZONE }}
   REGISTRY_URL: asia-east1-docker.pkg.dev 
   GCP_PROJECT_NUMBER: '1061852642455' 
+  REPOSITORY_NAME: deno-web-app
   IMAGE_NAME: deno-web-app
   DEPLOYMENT_NAME: deno-web-app
 
@@ -29,9 +30,9 @@ jobs:
       image_tag: ${{ steps.image-tag.outputs.tag }}
 
     steps:
-      - name: downcase IMAGE_NAME
+      - name: 設置倉庫變數
         run: |
-          echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >>${GITHUB_ENV}
+          echo "設置倉庫名稱為: ${{ env.REPOSITORY_NAME }}"
 
       - name: 檢出代碼
         uses: actions/checkout@v4
@@ -50,6 +51,18 @@ jobs:
           workload_identity_provider: 'projects/${{ env.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider'
           service_account: 'github-actions-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com'
 
+      - name: 創建 Artifact Registry 倉庫
+        run: |
+          gcloud artifacts repositories create ${{ env.REPOSITORY_NAME }} \
+            --repository-format=docker \
+            --location=asia-east1 \
+            --project=${{ env.PROJECT_ID }} || echo "倉庫可能已存在"
+          
+          echo "設置服務帳戶權限..."
+          gcloud projects add-iam-policy-binding ${{ env.PROJECT_ID }} \
+            --member="serviceAccount:github-actions-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com" \
+            --role="roles/artifactregistry.writer" || echo "權限可能已設置"
+
       - name: 登入 Artifact Registry
         run: |-
           gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://${{ env.REGISTRY_URL }}
@@ -59,11 +72,11 @@ jobs:
         run: |
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
             TAG_NAME=$(echo "${{ github.ref_name }}" | tr '[:upper:]' '[:lower:]')
-            echo "tag=${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:${TAG_NAME}" >> $GITHUB_OUTPUT
+            echo "tag=${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${TAG_NAME}" >> $GITHUB_OUTPUT
           else
             SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
             BRANCH=$(echo ${{ github.ref_name }} | sed 's/\//-/g' | tr '[:upper:]' '[:lower:]')
-            echo "tag=${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:${BRANCH}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+            echo "tag=${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${BRANCH}-${SHORT_SHA}" >> $GITHUB_OUTPUT
           fi
           echo "使用的映像標籤: $(cat $GITHUB_OUTPUT | grep tag= | cut -d= -f2)"
 
@@ -71,7 +84,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -126,12 +139,12 @@ jobs:
 
       - name: 創建命名空間
         run: |
-          kubectl create namespace ${{ env.IMAGE_NAME }} --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create namespace ${{ env.DEPLOYMENT_NAME }} --dry-run=client -o yaml | kubectl apply -f -
 
       - name: 創建 Docker Registry Secret
         run: |
           kubectl create secret docker-registry ghcr-auth \
-            --namespace ${{ env.IMAGE_NAME }} \
+            --namespace ${{ env.DEPLOYMENT_NAME }} \
             --docker-server=${{ env.REGISTRY_URL }} \
             --docker-username=oauth2accesstoken \
             --docker-password=$(gcloud auth print-access-token) \
@@ -140,14 +153,14 @@ jobs:
       - name: 部署 Helm Chart
         run: |
           helm upgrade --install ${{ env.DEPLOYMENT_NAME }} ./Helm \
-            --namespace ${{ env.IMAGE_NAME }} \
-            --set image.repository=${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }} \
-            --set image.tag=$(echo "${{ needs.build.outputs.image_tag }}" | cut -d: -f2) \
+            --namespace ${{ env.DEPLOYMENT_NAME }} \
+            --set image.repository=${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }} \
+            --set image.tag=$(echo "${{ needs.build.outputs.image_tag }}" | cut -d: -f2-) \
             --set imagePullSecrets[0].name=ghcr-auth \
             --wait --timeout=10m
 
       - name: 檢查部署狀態
         run: |
-          kubectl get pods -n ${{ env.IMAGE_NAME }}
-          kubectl get deployment -n ${{ env.IMAGE_NAME }}
-          kubectl get services -n ${{ env.IMAGE_NAME }}
+          kubectl get pods -n ${{ env.DEPLOYMENT_NAME }}
+          kubectl get deployment -n ${{ env.DEPLOYMENT_NAME }}
+          kubectl get services -n ${{ env.DEPLOYMENT_NAME }}
