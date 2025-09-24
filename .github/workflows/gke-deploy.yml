@@ -147,7 +147,7 @@ jobs:
           echo "🔑 從 GCP Secret Manager 讀取應用機密..."
           
           # 檢查必要的 secret 是否存在
-          SECRETS_TO_CHECK=("JWT_SECRET" "DB_PASS")
+          SECRETS_TO_CHECK=("JWT_SECRET" "DB_PASS" "DB_USER")
           
           for secret_name in "${SECRETS_TO_CHECK[@]}"; do
             if gcloud secrets describe "$secret_name" --project=${{ env.PROJECT_ID }} >/dev/null 2>&1; then
@@ -166,18 +166,30 @@ jobs:
           echo "讀取 DB_PASS..."
           DB_PASS=$(gcloud secrets versions access latest --secret="DB_PASS" --project=${{ env.PROJECT_ID }})
           
+          echo "讀取 DB_USER..."
+          DB_USER=$(gcloud secrets versions access latest --secret="DB_USER" --project=${{ env.PROJECT_ID }})
+          
           # 創建 Kubernetes Secret
           echo "創建 Kubernetes Secret..."
           kubectl create secret generic ${{ env.DEPLOYMENT_NAME }}-app-secret \
             --namespace=${{ env.DEPLOYMENT_NAME }} \
             --from-literal=JWT_SECRET="$JWT_SECRET" \
             --from-literal=DB_PASS="$DB_PASS" \
+            --from-literal=DB_USER="$DB_USER" \
             --dry-run=client -o yaml | kubectl apply -f -
           
           echo "✅ 應用 Secret 已創建"
           
           # 驗證 Secret 已創建
-          kubectl get secret ${{ env.DEPLOYMENT_NAME }}-app-secret -n ${{ env.DEPLOYMENT_NAME }} -o jsonpath='{.data}' | jq 'keys' || echo "Secret 鍵已創建"
+          echo "驗證 Secret 是否成功創建..."
+          if kubectl get secret ${{ env.DEPLOYMENT_NAME }}-app-secret -n ${{ env.DEPLOYMENT_NAME }} >/dev/null 2>&1; then
+            echo "✅ Kubernetes Secret 已創建"
+            echo "Secret 內容檢查："
+            kubectl get secret ${{ env.DEPLOYMENT_NAME }}-app-secret -n ${{ env.DEPLOYMENT_NAME }} -o jsonpath='{.data}' | jq 'keys' || echo "Secret 鍵: JWT_SECRET, DB_PASS, DB_USER"
+          else
+            echo "❌ Kubernetes Secret 創建失敗"
+            exit 1
+          fi
 
       - name: 強制清理 Helm 狀態
         run: |
@@ -273,6 +285,14 @@ jobs:
           echo "=== Secret 狀態 ==="
           kubectl get secret -n ${{ env.DEPLOYMENT_NAME }}
           
+          echo "=== 檢查應用 Secret 是否存在 ==="
+          if kubectl get secret ${{ env.DEPLOYMENT_NAME }}-app-secret -n ${{ env.DEPLOYMENT_NAME }} >/dev/null 2>&1; then
+            echo "✅ 應用 Secret 存在"
+            kubectl describe secret ${{ env.DEPLOYMENT_NAME }}-app-secret -n ${{ env.DEPLOYMENT_NAME }}
+          else
+            echo "❌ 應用 Secret 不存在 - 這會導致環境變數無法載入"
+          fi
+          
           echo "=== 立即檢查 Pod 創建 ==="
           sleep 5
           kubectl get pods -n ${{ env.DEPLOYMENT_NAME }} -o wide
@@ -305,6 +325,16 @@ jobs:
           for pod in $PODS; do
             echo "--- 診斷 Pod: $pod ---"
             kubectl describe pod $pod -n ${{ env.DEPLOYMENT_NAME }}
+            
+            echo "--- Pod 環境變數檢查: $pod ---"
+            if kubectl exec $pod -n ${{ env.DEPLOYMENT_NAME }} -- printenv | grep -E "(JWT_SECRET|DB_PASS|DB_USER)" 2>/dev/null; then
+              echo "✅ 找到所需環境變數"
+            else
+              echo "❌ Pod 中缺少所需環境變數"
+              echo "所有環境變數："
+              kubectl exec $pod -n ${{ env.DEPLOYMENT_NAME }} -- printenv 2>/dev/null | head -10 || echo "無法執行環境變數檢查"
+            fi
+            
             echo "--- Pod 日誌: $pod ---"
             kubectl logs $pod -n ${{ env.DEPLOYMENT_NAME }} || echo "無法獲取日誌"
           done
