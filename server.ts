@@ -1,4 +1,4 @@
-import { Application, Router, send, Context, Next, RouteParams } from "https://deno.land/x/oak@v17.1.4/mod.ts";
+import { Application, Router, send, type Context, type Next } from "https://deno.land/x/oak@v17.1.4/mod.ts";
 import { registerRouter } from "./api/auth/register.ts";
 import { loginRouter } from "./api/auth/login.ts";
 import { learnStatusRouter } from "./api/profile/learn_status.ts";
@@ -108,8 +108,8 @@ router.get("/api/:apiName", async (ctx: Context, next: Next) => {
 });
 
 // 靜態頁面不驗證 JWT
-router.get("/profile/:page", async (ctx: Context<any>) => {
-  const requestedPage = ctx.params.page;
+router.get("/profile/:page", async (ctx) => {
+  const requestedPage = ctx.params?.page || "index.html";
   const filePath = `/profile/${requestedPage}`;
   try {
     await send(ctx, filePath, {

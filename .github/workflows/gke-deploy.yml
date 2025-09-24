@@ -26,8 +26,6 @@ jobs:
   build:
     name: 構建並推送 Docker 映像
     runs-on: ubuntu-latest
-    outputs:
-      image_tag: ${{ steps.image-tag.outputs.tag }}
 
     steps:
       - name: 檢出代碼
@@ -121,8 +119,9 @@ jobs:
       - name: 準備映像標籤
         id: prepare-tag
         run: |
-          if [[ -n "${{ needs.build.outputs.image_tag }}" ]]; then
-            IMAGE_TAG=$(echo "${{ needs.build.outputs.image_tag }}" | cut -d: -f2-)
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            TAG_NAME=$(echo "${{ github.ref_name }}" | tr '[:upper:]' '[:lower:]')
+            IMAGE_TAG="${TAG_NAME}"
           else
             SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
             BRANCH=$(echo ${{ github.ref_name }} | sed 's/\//-/g' | tr '[:upper:]' '[:lower:]')
