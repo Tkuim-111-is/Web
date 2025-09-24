@@ -90,7 +90,7 @@ app.use(learnStatusRouter.allowedMethods());
 // 登出導回首頁
 // ==========================
 router.get("/logout", (ctx) => {
-  // 清除客戶端的 token 通過重定向到首頁
+  localStorage.removeItem('token');
   ctx.response.redirect("/index.html");
 });
 
@@ -149,7 +149,7 @@ router.get("/(.*)", async (ctx) => {
 // ==========================
 app.use(router.routes());
 app.use(router.allowedMethods());
-const port = parseInt(Deno.env.get("PORT") ?? "");
-const host = String(Deno.env.get("HOST") ?? "");
+const port = parseInt(Deno.env.get("PORT") ?? "8000");
+
 console.log(`[${new Date().toISOString()}] [INFO] [server.ts] Server is running at http://localhost:${port}`);
-await app.listen({ port, hostname: host });
+await app.listen({ port });
