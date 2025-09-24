@@ -129,7 +129,7 @@ jobs:
             --docker-password=$(gcloud auth print-access-token) \
             --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: 確認 Secret Manager 外掛程式
+      - name: 確認並設置 Secret Manager
         run: |
           echo "🔍 檢查 GKE 叢集的 Secret Manager 外掛程式狀態..."
           
@@ -150,19 +150,49 @@ jobs:
             echo "✅ Secret Manager 外掛程式已啟用"
           fi
           
-          # 驗證 Secret Manager 中的 secrets 存在
-          echo "🔍 驗證 Secret Manager 中的 secrets..."
+          # 驗證並創建必要的 secrets
+          echo "🔍 檢查並創建 Secret Manager 中的 secrets..."
           SECRETS_TO_CHECK=("JWT_SECRET" "DB_PASS" "DB_USER")
+          
+          # 生成隨機值的函數
+          generate_random_secret() {
+            openssl rand -base64 32 | tr -d "=+/" | cut -c1-32
+          }
           
           for secret_name in "${SECRETS_TO_CHECK[@]}"; do
             if gcloud secrets describe "$secret_name" --project=${{ env.PROJECT_ID }} >/dev/null 2>&1; then
-              echo "✅ Secret '$secret_name' 存在於 Secret Manager"
+              echo "✅ Secret '$secret_name' 已存在於 Secret Manager"
             else
-              echo "❌ 錯誤: Secret '$secret_name' 不存在於 Secret Manager"
-              echo "請在 GCP Secret Manager 中創建此 secret"
-              exit 1
+              echo "🆕 Secret '$secret_name' 不存在，正在創建..."
+              
+              # 創建 secret
+              gcloud secrets create "$secret_name" \
+                --project=${{ env.PROJECT_ID }} \
+                --replication-policy="automatic"
+              
+              # 生成並設置值
+              SECRET_VALUE=""
+              case "$secret_name" in
+                "JWT_SECRET")
+                  SECRET_VALUE=$(generate_random_secret)
+                  ;;
+                "DB_USER")
+                  SECRET_VALUE="deno_user"
+                  ;;
+                "DB_PASS")
+                  SECRET_VALUE=$(generate_random_secret)
+                  ;;
+              esac
+              
+              echo "$SECRET_VALUE" | gcloud secrets versions add "$secret_name" \
+                --project=${{ env.PROJECT_ID }} \
+                --data-file=-
+              
+              echo "✅ Secret '$secret_name' 已創建並設置值"
             fi
           done
+          
+          echo "🎉 所有必要的 secrets 都已就緒！"
 
       - name: 設定 Workload Identity 權限
         run: |
