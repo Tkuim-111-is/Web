@@ -108,22 +108,6 @@ jobs:
         with:
           workload_identity_provider: 'projects/${{ env.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider'
           service_account: 'github-actions-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com'
-          
-      - name: 檢查 Secret Manager 權限
-        run: |
-          echo "🔐 檢查 Secret Manager 訪問權限..."
-          
-          # 測試是否能訪問 Secret Manager
-          if gcloud secrets list --project=${{ env.PROJECT_ID }} --limit=1 >/dev/null 2>&1; then
-            echo "✅ Secret Manager 訪問權限正常"
-          else
-            echo "❌ Secret Manager 訪問權限不足"
-            echo "請確保以下 API 已啟用："
-            echo "1. Secret Manager API"
-            echo "2. Cloud Resource Manager API" 
-            echo "並且 github-actions-sa 服務帳戶有 'Secret Manager Secret Accessor' 角色"
-            exit 1
-          fi
 
       - name: 設置 GKE 認證
         uses: google-github-actions/get-gke-credentials@v2
