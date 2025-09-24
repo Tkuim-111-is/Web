@@ -46,6 +46,9 @@ spec:
             - secretRef:
                 name: {{ include "deno-web-app.fullname" . }}-secret
           {{- end }}
+            # 應用機密（從 GCP Secret Manager）
+            - secretRef:
+                name: {{ include "deno-web-app.fullname" . }}-app-secret
           livenessProbe:
             {{- toYaml .Values.livenessProbe | nindent 12 }}
           readinessProbe:

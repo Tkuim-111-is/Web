@@ -109,6 +109,19 @@ jobs:
           workload_identity_provider: 'projects/${{ env.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider'
           service_account: 'github-actions-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com'
           
+      - name: 配置 Secret Manager 權限
+        run: |
+          echo "🔐 確保 GitHub Actions Service Account 有 Secret Manager 權限..."
+          
+          SA_EMAIL="github-actions-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
+          
+          # 授予 Secret Manager Secret Accessor 權限
+          gcloud projects add-iam-policy-binding ${{ env.PROJECT_ID }} \
+            --member="serviceAccount:$SA_EMAIL" \
+            --role="roles/secretmanager.secretAccessor" || echo "權限可能已存在"
+          
+          echo "✅ Secret Manager 權限配置完成"
+
       - name: 設置 GKE 認證
         uses: google-github-actions/get-gke-credentials@v2
         with:
@@ -128,6 +141,43 @@ jobs:
             --docker-username=oauth2accesstoken \
             --docker-password=$(gcloud auth print-access-token) \
             --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: 創建應用 Secret（從 Secret Manager）
+        run: |
+          echo "🔑 從 GCP Secret Manager 讀取應用機密..."
+          
+          # 檢查必要的 secret 是否存在
+          SECRETS_TO_CHECK=("JWT_SECRET" "DB_PASS")
+          
+          for secret_name in "${SECRETS_TO_CHECK[@]}"; do
+            if gcloud secrets describe "$secret_name" --project=${{ env.PROJECT_ID }} >/dev/null 2>&1; then
+              echo "✅ Secret '$secret_name' 在 Secret Manager 中存在"
+            else
+              echo "❌ 錯誤: Secret '$secret_name' 在 Secret Manager 中不存在"
+              echo "請先在 GCP Secret Manager 中創建此 secret"
+              exit 1
+            fi
+          done
+          
+          # 從 Secret Manager 讀取值
+          echo "讀取 JWT_SECRET..."
+          JWT_SECRET=$(gcloud secrets versions access latest --secret="JWT_SECRET" --project=${{ env.PROJECT_ID }})
+          
+          echo "讀取 DB_PASS..."
+          DB_PASS=$(gcloud secrets versions access latest --secret="DB_PASS" --project=${{ env.PROJECT_ID }})
+          
+          # 創建 Kubernetes Secret
+          echo "創建 Kubernetes Secret..."
+          kubectl create secret generic ${{ env.DEPLOYMENT_NAME }}-app-secret \
+            --namespace=${{ env.DEPLOYMENT_NAME }} \
+            --from-literal=JWT_SECRET="$JWT_SECRET" \
+            --from-literal=DB_PASS="$DB_PASS" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          
+          echo "✅ 應用 Secret 已創建"
+          
+          # 驗證 Secret 已創建
+          kubectl get secret ${{ env.DEPLOYMENT_NAME }}-app-secret -n ${{ env.DEPLOYMENT_NAME }} -o jsonpath='{.data}' | jq 'keys' || echo "Secret 鍵已創建"
 
       - name: 強制清理 Helm 狀態
         run: |
@@ -202,6 +252,72 @@ jobs:
             --wait --timeout=8m \
             --atomic \
             --debug
+
+      - name: 驗證關鍵資源
+        run: |
+          echo "📋 驗證部署的關鍵資源..."
+          
+          echo "=== ServiceAccount 狀態 ==="
+          if kubectl get serviceaccount ${{ env.DEPLOYMENT_NAME }} -n ${{ env.DEPLOYMENT_NAME }} >/dev/null 2>&1; then
+            echo "✅ ServiceAccount 已創建"
+            kubectl get serviceaccount ${{ env.DEPLOYMENT_NAME }} -n ${{ env.DEPLOYMENT_NAME }}
+          else
+            echo "❌ ServiceAccount 不存在，這會導致 Pod 無法啟動"
+            echo "列出所有 ServiceAccount："
+            kubectl get serviceaccount -n ${{ env.DEPLOYMENT_NAME }}
+          fi
+          
+          echo "=== ConfigMap 狀態 ==="
+          kubectl get configmap -n ${{ env.DEPLOYMENT_NAME }} || echo "無 ConfigMap"
+          
+          echo "=== Secret 狀態 ==="
+          kubectl get secret -n ${{ env.DEPLOYMENT_NAME }}
+          
+          echo "=== 立即檢查 Pod 創建 ==="
+          sleep 5
+          kubectl get pods -n ${{ env.DEPLOYMENT_NAME }} -o wide
+          
+          # 如果沒有 Pod，檢查 ReplicaSet
+          POD_COUNT=$(kubectl get pods -n ${{ env.DEPLOYMENT_NAME }} --no-headers | wc -l)
+          if [[ $POD_COUNT -eq 0 ]]; then
+            echo "⚠️  沒有 Pod 被創建，檢查 ReplicaSet..."
+            kubectl get replicaset -n ${{ env.DEPLOYMENT_NAME }}
+            kubectl describe replicaset -n ${{ env.DEPLOYMENT_NAME }}
+          fi
+
+      - name: 診斷 Pod 啟動問題
+        run: |
+          echo "🔍 診斷 Pod 為什麼無法啟動..."
+          
+          echo "=== Deployment 狀態 ==="
+          kubectl get deployment ${{ env.DEPLOYMENT_NAME }} -n ${{ env.DEPLOYMENT_NAME }} -o wide
+          kubectl describe deployment ${{ env.DEPLOYMENT_NAME }} -n ${{ env.DEPLOYMENT_NAME }}
+          
+          echo "=== ReplicaSet 狀態 ==="
+          kubectl get replicaset -n ${{ env.DEPLOYMENT_NAME }}
+          kubectl describe replicaset -n ${{ env.DEPLOYMENT_NAME }}
+          
+          echo "=== Pod 狀態和詳細資訊 ==="
+          kubectl get pods -n ${{ env.DEPLOYMENT_NAME }} -o wide
+          
+          # 獲取所有 Pod 並逐一診斷
+          PODS=$(kubectl get pods -n ${{ env.DEPLOYMENT_NAME }} -o jsonpath='{.items[*].metadata.name}')
+          for pod in $PODS; do
+            echo "--- 診斷 Pod: $pod ---"
+            kubectl describe pod $pod -n ${{ env.DEPLOYMENT_NAME }}
+            echo "--- Pod 日誌: $pod ---"
+            kubectl logs $pod -n ${{ env.DEPLOYMENT_NAME }} || echo "無法獲取日誌"
+          done
+          
+          echo "=== 檢查 ServiceAccount ==="
+          kubectl get serviceaccount -n ${{ env.DEPLOYMENT_NAME }}
+          kubectl describe serviceaccount ${{ env.DEPLOYMENT_NAME }} -n ${{ env.DEPLOYMENT_NAME }} || echo "ServiceAccount 不存在"
+          
+          echo "=== 檢查 Secrets ==="
+          kubectl get secrets -n ${{ env.DEPLOYMENT_NAME }}
+          
+          echo "=== 檢查節點資源 ==="
+          kubectl describe nodes | grep -E "(Name:|cpu|memory|Allocated|allocatable)" || echo "無法獲取節點資源資訊"
 
       - name: 驗證部署狀態
         run: |
