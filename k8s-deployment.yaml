@@ -1,0 +1,135 @@
+# Kubernetes 部署配置 - 使用 Secret 作為環境變數
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: deno-web-app
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deno-web-app
+  namespace: deno-web-app
+  labels:
+    app: deno-web-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: deno-web-app
+  template:
+    metadata:
+      labels:
+        app: deno-web-app
+    spec:
+      containers:
+      - name: deno-web-app
+        image: asia-east1-docker.pkg.dev/PROJECT_ID/deno-web-app/deno-web-app:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+        
+        # 環境變數配置 - 從現有的 deno-web-app-secret 讀取
+        env:
+        # 基本應用程式配置
+        - name: PORT
+          value: "8000"
+        - name: HOST
+          value: "0.0.0.0"
+        - name: DB_HOST
+          value: "localhost"
+        - name: DB_NAME
+          value: "is_db"
+        - name: DB_PORT
+          value: "3306"
+        - name: ENVIRONMENT
+          value: "production"
+        - name: SERVICE_NAME
+          value: "deno-web-app"
+        - name: SERVICE_VERSION
+          value: "1.0.0"
+        
+        # 從 Secret 讀取的敏感資料（環境變數）
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: deno-web-app-secret
+              key: JWT_SECRET
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: deno-web-app-secret
+              key: DB_USER
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: deno-web-app-secret
+              key: DB_PASS
+        
+        # 健康檢查
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 6
+        
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        # 資源限制
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 200m
+            memory: 256Mi
+      
+      # 映像拉取密鑰
+      imagePullSecrets:
+      - name: ghcr-auth
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: deno-web-app-service
+  namespace: deno-web-app
+  labels:
+    app: deno-web-app
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: deno-web-app
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: deno-web-app-ingress
+  namespace: deno-web-app
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: deno-web-app-service
+            port:
+              number: 80

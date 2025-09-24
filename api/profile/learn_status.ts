@@ -3,13 +3,12 @@ import { Client } from "https://deno.land/x/mysql/mod.ts";
 // JWT 功能保留以備未來使用（如 token 刷新、自定義驗證等）
 import { create as _create, verify as _verify, getNumericDate as _getNumericDate } from "https://deno.land/x/djwt@v2.8/mod.ts";
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
-import { getSecretOptional } from "../../utils/secrets.ts";
 
 // 讀取資料庫設定
 const dbConfig = {
   hostname: Deno.env.get("DB_HOST") ?? "",
-  username: getSecretOptional("DB_USER", ""),
-  password: getSecretOptional("DB_PASS", ""),
+  username: Deno.env.get("DB_USER") ?? "",
+  password: Deno.env.get("DB_PASS") ?? "",
   db: Deno.env.get("DB_NAME") ?? "",
 };
 

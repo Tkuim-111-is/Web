@@ -4,9 +4,9 @@ import { loginRouter } from "./api/auth/login.ts";
 import { learnStatusRouter } from "./api/profile/learn_status.ts";
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
 import { jwtVerify } from "https://deno.land/x/jose@v5.3.0/jwt/verify.ts";
-import { getSecret } from "./utils/secrets.ts";
 
-const JWT_SECRET_RAW = getSecret("JWT_SECRET");
+const JWT_SECRET_RAW = Deno.env.get("JWT_SECRET");
+if (!JWT_SECRET_RAW) throw new Error("JWT_SECRET 未設定");
 const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_RAW);
 
 const app = new Application();
@@ -90,7 +90,7 @@ app.use(learnStatusRouter.allowedMethods());
 // 登出導回首頁
 // ==========================
 router.get("/logout", (ctx) => {
-  localStorage.removeItem('token');
+  // 清除客戶端的 token 通過重定向到首頁
   ctx.response.redirect("/index.html");
 });
 
@@ -149,7 +149,7 @@ router.get("/(.*)", async (ctx) => {
 // ==========================
 app.use(router.routes());
 app.use(router.allowedMethods());
-const port = parseInt(Deno.env.get("PORT") ?? "8000");
-
+const port = parseInt(Deno.env.get("PORT") ?? "");
+const host = String(Deno.env.get("HOST") ?? "");
 console.log(`[${new Date().toISOString()}] [INFO] [server.ts] Server is running at http://localhost:${port}`);
-await app.listen({ port });
+await app.listen({ port, hostname: host });

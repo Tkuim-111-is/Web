@@ -3,12 +3,11 @@ import { Client } from "https://deno.land/x/mysql/mod.ts";
 import * as bcrypt from "https://deno.land/x/bcrypt/mod.ts";
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
 import { SignJWT } from "https://deno.land/x/jose@v5.3.0/jwt/sign.ts";
-import { getSecret, getSecretOptional } from "../../utils/secrets.ts";
 
 const dbConfig = {
   hostname: Deno.env.get("DB_HOST") ?? "",
-  username: getSecretOptional("DB_USER", ""),
-  password: getSecretOptional("DB_PASS", ""),
+  username: Deno.env.get("DB_USER") ?? "",
+  password: Deno.env.get("DB_PASS") ?? "",
   db: Deno.env.get("DB_NAME") ?? "",
   debug: false,
 };
@@ -17,7 +16,10 @@ const client = await new Client().connect(dbConfig);
 
 // 創建路由處理註冊請求
 export const loginRouter = new Router();
-const JWT_SECRET_RAW = getSecret("JWT_SECRET");
+const JWT_SECRET_RAW = Deno.env.get("JWT_SECRET");
+if (!JWT_SECRET_RAW) {
+  throw new Error("JWT_SECRET 未設定");
+}
 const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_RAW);
 
 loginRouter.post("/api/auth/login", async (ctx) => {

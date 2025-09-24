@@ -1,5 +1,6 @@
 apiVersion: v2
-name: deno-web-app
+name: kubectl krew install ctx
+
 description: A Helm chart for Deno Web Application
 type: application
 version: 0.1.0
