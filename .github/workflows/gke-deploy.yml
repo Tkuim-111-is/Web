@@ -112,11 +112,25 @@ jobs:
 
       - id: 'auth'
         name: '使用 WIF 驗證到 GCP'
-        uses: 'google-github-actions/auth@v3'
+        uses: 'google-github-actions/auth@v2'
         with:
           workload_identity_provider: 'projects/${{ env.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider'
           service_account: 'github-actions-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com'
 
+      - name: 驗證 GCP 認證狀態
+        run: |
+          echo "檢查 GCP 認證狀態..."
+          gcloud auth list
+          gcloud config list
+          echo "當前專案: $(gcloud config get-value project)"
+          
+      - name: 檢查 GKE 叢集是否存在
+        run: |
+          echo "列出所有可用的 GKE 叢集..."
+          gcloud container clusters list --project=${{ env.PROJECT_ID }}
+          echo "檢查指定的叢集: ${{ env.GKE_CLUSTER }} 在區域: ${{ env.GKE_ZONE }}"
+          gcloud container clusters describe ${{ env.GKE_CLUSTER }} --zone=${{ env.GKE_ZONE }} --project=${{ env.PROJECT_ID }} || echo "叢集不存在或無權限訪問"
+          
       - name: 設置 GKE 認證
         uses: google-github-actions/get-gke-credentials@v2
         with:
@@ -148,6 +162,19 @@ jobs:
 
       - name: 檢查部署狀態
         run: |
+          echo "檢查部署狀態..."
           kubectl get pods -n ${{ env.DEPLOYMENT_NAME }}
           kubectl get deployment -n ${{ env.DEPLOYMENT_NAME }}
           kubectl get services -n ${{ env.DEPLOYMENT_NAME }}
+          kubectl get ingress -n ${{ env.DEPLOYMENT_NAME }} || echo "無 Ingress 資源"
+          
+      - name: 故障排除資訊
+        if: failure()
+        run: |
+          echo "收集故障排除資訊..."
+          echo "=== Kubernetes 事件 ==="
+          kubectl get events -n ${{ env.DEPLOYMENT_NAME }} --sort-by='.lastTimestamp'
+          echo "=== Pod 日誌 ==="
+          kubectl logs -l app=${{ env.DEPLOYMENT_NAME }} -n ${{ env.DEPLOYMENT_NAME }} --tail=50 || echo "無法獲取日誌"
+          echo "=== Deployment 詳細資訊 ==="
+          kubectl describe deployment ${{ env.DEPLOYMENT_NAME }} -n ${{ env.DEPLOYMENT_NAME }} || echo "無法獲取 Deployment 資訊"
