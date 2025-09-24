@@ -151,46 +151,15 @@ jobs:
       - name: 部署 MySQL 到 GKE
         run: |
           echo "部署 MySQL 資料庫..."
-          kubectl apply -f mysql.yaml
-          
-      - name: 等待 MySQL 就緒
-        run: |
-          echo "等待 MySQL 就緒..."
-          kubectl wait --for=condition=ready pod -l app=mysql -n ${{ env.DEPLOYMENT_NAME }} --timeout=300s
-          
-          echo "測試 MySQL 連接..."
-          for i in {1..30}; do
-            if kubectl exec -n ${{ env.DEPLOYMENT_NAME }} deployment/mysql -- mysqladmin ping -h localhost --silent; then
-              echo "MySQL 連接測試成功！"
-              break
-            fi
-            echo "等待 MySQL 完全啟動... (嘗試 $i/30)"
-            sleep 10
-          done
-          echo "MySQL 已完全就緒！"
+          kubectl apply -f kubernetes/mysql.yaml
 
       - name: 部署應用程式到 GKE
         run: |
           echo "部署 deno-web-app 應用程式..."
           FULL_IMAGE_PATH="${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ steps.prepare-tag.outputs.tag }}"
-          sed "s|asia-east1-docker.pkg.dev/PROJECT_ID/deno-web-app/deno-web-app:latest|$FULL_IMAGE_PATH|g" deno.yaml > deployment-temp.yaml
+          sed "s|asia-east1-docker.pkg.dev/PROJECT_ID/deno-web-app/deno-web-app:latest|$FULL_IMAGE_PATH|g" kubernetes/deno.yaml > deployment-temp.yaml
           sed -i "s/PROJECT_ID/${{ env.PROJECT_ID }}/g" deployment-temp.yaml
           kubectl apply -f deployment-temp.yaml
           kubectl rollout status deployment/deno-web-app -n ${{ env.DEPLOYMENT_NAME }} --timeout=600s
           rm -f deployment-temp.yaml
           echo "應用程式部署完成！"
-
-      - name: 驗證部署狀態
-        run: |
-          echo "=== 部署狀態摘要 ==="
-          echo "MySQL 狀態："
-          kubectl get pods -l app=mysql -n ${{ env.DEPLOYMENT_NAME }}
-          echo ""
-          echo "應用程式狀態："
-          kubectl get pods -l app=deno-web-app -n ${{ env.DEPLOYMENT_NAME }}
-          echo ""
-          echo "服務狀態："
-          kubectl get services -n ${{ env.DEPLOYMENT_NAME }}
-          echo ""
-          echo "PVC 狀態："
-          kubectl get pvc -n ${{ env.DEPLOYMENT_NAME }}
