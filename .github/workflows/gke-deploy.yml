@@ -128,40 +128,79 @@ jobs:
             --docker-username=oauth2accesstoken \
             --docker-password=$(gcloud auth print-access-token) \
             --dry-run=client -o yaml | kubectl apply -f -
-  
-      - name: 檢查並清理 Helm 狀態
+
+      - name: 強制清理 Helm 狀態
         run: |
-          echo "檢查 Helm release 狀態..."
+          echo "檢查並強制清理 Helm release 狀態..."
           
-          # 檢查是否存在卡住的 release
-          if helm list -n ${{ env.DEPLOYMENT_NAME }} --deployed --failed --pending | grep ${{ env.DEPLOYMENT_NAME }}; then
+          # 檢查現有的 release
+          if helm list -n ${{ env.DEPLOYMENT_NAME }} -a | grep ${{ env.DEPLOYMENT_NAME }}; then
             echo "發現現有的 release，檢查狀態..."
             helm status ${{ env.DEPLOYMENT_NAME }} -n ${{ env.DEPLOYMENT_NAME }} || echo "無法獲取狀態"
             
-            # 如果有卡住的操作，進行清理
-            echo "檢查是否有卡住的操作..."
-            if helm list -n ${{ env.DEPLOYMENT_NAME }} --pending | grep ${{ env.DEPLOYMENT_NAME }}; then
-              echo "⚠️  發現卡住的操作，正在清理..."
-              helm rollback ${{ env.DEPLOYMENT_NAME }} -n ${{ env.DEPLOYMENT_NAME }} || echo "回滾失敗，嘗試強制操作"
-            fi
+            # 強制刪除卡住的 release
+            echo "🗑️  強制刪除現有的 release..."
+            helm uninstall ${{ env.DEPLOYMENT_NAME }} -n ${{ env.DEPLOYMENT_NAME }} --timeout=120s || echo "卸載失敗，繼續進行"
+            
+            # 清理相關 Kubernetes 資源
+            echo "🧹 清理相關 Kubernetes 資源..."
+            kubectl delete deployment ${{ env.DEPLOYMENT_NAME }} -n ${{ env.DEPLOYMENT_NAME }} --ignore-not-found=true
+            kubectl delete service ${{ env.DEPLOYMENT_NAME }} -n ${{ env.DEPLOYMENT_NAME }} --ignore-not-found=true
+            kubectl delete ingress ${{ env.DEPLOYMENT_NAME }} -n ${{ env.DEPLOYMENT_NAME }} --ignore-not-found=true
+            kubectl delete configmap ${{ env.DEPLOYMENT_NAME }}-config -n ${{ env.DEPLOYMENT_NAME }} --ignore-not-found=true
+            
+            # 等待資源清理完成
+            echo "⏳ 等待資源清理完成..."
+            sleep 10
           else
             echo "✅ 沒有現有的 release"
+          fi
+
+      - name: 準備映像標籤
+        id: prepare-tag
+        run: |
+          echo "檢查映像標籤..."
+          
+          # 檢查是否有 build job 的輸出
+          if [[ -n "${{ needs.build.outputs.image_tag }}" ]]; then
+            IMAGE_TAG=$(echo "${{ needs.build.outputs.image_tag }}" | cut -d: -f2-)
+            echo "使用 build job 的映像標籤: $IMAGE_TAG"
+          else
+            # 生成默認標籤
+            SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+            BRANCH=$(echo ${{ github.ref_name }} | sed 's/\//-/g' | tr '[:upper:]' '[:lower:]')
+            IMAGE_TAG="${BRANCH}-${SHORT_SHA}"
+            echo "⚠️  build job 輸出為空，使用生成的標籤: $IMAGE_TAG"
+          fi
+          
+          # 設置輸出
+          echo "tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "full_image=${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          
+          # 驗證映像是否存在
+          echo "驗證映像是否存在..."
+          if docker manifest inspect ${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG >/dev/null 2>&1; then
+            echo "✅ 映像已確認存在"
+          else
+            echo "❌ 警告: 映像可能不存在，部署可能會失敗"
+            echo "映像路徑: ${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG"
           fi
 
       - name: 部署 Helm Chart
         run: |
           echo "開始部署 Helm Chart..."
-          echo "映像標籤: $(echo "${{ needs.build.outputs.image_tag }}" | cut -d: -f2-)"
+          echo "使用映像: ${{ steps.prepare-tag.outputs.full_image }}"
+          echo "映像標籤: ${{ steps.prepare-tag.outputs.tag }}"
           
-          # 使用 --force 參數處理可能的衝突
+          # 使用準備好的映像標籤進行部署
           helm upgrade --install ${{ env.DEPLOYMENT_NAME }} ./Helm \
             --namespace ${{ env.DEPLOYMENT_NAME }} \
             --set image.repository=${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }} \
-            --set image.tag=$(echo "${{ needs.build.outputs.image_tag }}" | cut -d: -f2-) \
+            --set image.tag=${{ steps.prepare-tag.outputs.tag }} \
             --set imagePullSecrets[0].name=ghcr-auth \
             --create-namespace \
             --wait --timeout=8m \
-            --force \
+            --atomic \
             --debug
 
       - name: 驗證部署狀態
