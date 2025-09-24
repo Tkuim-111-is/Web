@@ -129,11 +129,72 @@ jobs:
             --docker-password=$(gcloud auth print-access-token) \
             --dry-run=client -o yaml | kubectl apply -f -
   
+      - name: 檢查並清理 Helm 狀態
+        run: |
+          echo "檢查 Helm release 狀態..."
+          
+          # 檢查是否存在卡住的 release
+          if helm list -n ${{ env.DEPLOYMENT_NAME }} --deployed --failed --pending | grep ${{ env.DEPLOYMENT_NAME }}; then
+            echo "發現現有的 release，檢查狀態..."
+            helm status ${{ env.DEPLOYMENT_NAME }} -n ${{ env.DEPLOYMENT_NAME }} || echo "無法獲取狀態"
+            
+            # 如果有卡住的操作，進行清理
+            echo "檢查是否有卡住的操作..."
+            if helm list -n ${{ env.DEPLOYMENT_NAME }} --pending | grep ${{ env.DEPLOYMENT_NAME }}; then
+              echo "⚠️  發現卡住的操作，正在清理..."
+              helm rollback ${{ env.DEPLOYMENT_NAME }} -n ${{ env.DEPLOYMENT_NAME }} || echo "回滾失敗，嘗試強制操作"
+            fi
+          else
+            echo "✅ 沒有現有的 release"
+          fi
+
       - name: 部署 Helm Chart
         run: |
+          echo "開始部署 Helm Chart..."
+          echo "映像標籤: $(echo "${{ needs.build.outputs.image_tag }}" | cut -d: -f2-)"
+          
+          # 使用 --force 參數處理可能的衝突
           helm upgrade --install ${{ env.DEPLOYMENT_NAME }} ./Helm \
             --namespace ${{ env.DEPLOYMENT_NAME }} \
             --set image.repository=${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }} \
             --set image.tag=$(echo "${{ needs.build.outputs.image_tag }}" | cut -d: -f2-) \
             --set imagePullSecrets[0].name=ghcr-auth \
-            --wait --timeout=10m
+            --create-namespace \
+            --wait --timeout=8m \
+            --force \
+            --debug
+
+      - name: 驗證部署狀態
+        run: |
+          echo "驗證部署狀態..."
+          kubectl get pods -n ${{ env.DEPLOYMENT_NAME }}
+          kubectl get services -n ${{ env.DEPLOYMENT_NAME }}
+          kubectl get ingress -n ${{ env.DEPLOYMENT_NAME }} || echo "無 Ingress 資源"
+          
+          # 檢查 Pod 就緒狀態
+          echo "等待 Pod 就緒..."
+          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=deno-web-app \
+            -n ${{ env.DEPLOYMENT_NAME }} --timeout=300s || echo "某些 Pod 可能還未就緒"
+          
+          echo "✅ 部署完成"
+
+      - name: 故障排除資訊
+        if: failure()
+        run: |
+          echo "🚨 部署失敗，收集診斷資訊..."
+          
+          echo "=== Helm Release 狀態 ==="
+          helm list -n ${{ env.DEPLOYMENT_NAME }} -a || echo "無法獲取 Helm release 列表"
+          helm status ${{ env.DEPLOYMENT_NAME }} -n ${{ env.DEPLOYMENT_NAME }} || echo "無法獲取 release 狀態"
+          
+          echo "=== Kubernetes 事件 ==="
+          kubectl get events -n ${{ env.DEPLOYMENT_NAME }} --sort-by='.lastTimestamp' --field-selector type!=Normal || echo "無法獲取事件"
+          
+          echo "=== Pod 詳細資訊 ==="
+          kubectl describe pods -n ${{ env.DEPLOYMENT_NAME }} || echo "無法獲取 Pod 描述"
+          
+          echo "=== Pod 日誌 ==="
+          for pod in $(kubectl get pods -n ${{ env.DEPLOYMENT_NAME }} -o name); do
+            echo "--- $pod 日誌 ---"
+            kubectl logs $pod -n ${{ env.DEPLOYMENT_NAME }} --tail=50 || echo "無法獲取日誌"
+          done
