@@ -30,10 +30,6 @@ jobs:
       image_tag: ${{ steps.image-tag.outputs.tag }}
 
     steps:
-      - name: 設置倉庫變數
-        run: |
-          echo "設置倉庫名稱為: ${{ env.REPOSITORY_NAME }}"
-
       - name: 檢出代碼
         uses: actions/checkout@v4
 
@@ -62,7 +58,6 @@ jobs:
             BRANCH=$(echo ${{ github.ref_name }} | sed 's/\//-/g' | tr '[:upper:]' '[:lower:]')
             echo "tag=${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${BRANCH}-${SHORT_SHA}" >> $GITHUB_OUTPUT
           fi
-          echo "使用的映像標籤: $(cat $GITHUB_OUTPUT | grep tag= | cut -d= -f2)"
 
       - name: 提取 Docker 元數據
         id: meta
@@ -126,120 +121,31 @@ jobs:
       - name: 準備映像標籤
         id: prepare-tag
         run: |
-          echo "檢查映像標籤..."
-          
-          # 檢查是否有 build job 的輸出
           if [[ -n "${{ needs.build.outputs.image_tag }}" ]]; then
             IMAGE_TAG=$(echo "${{ needs.build.outputs.image_tag }}" | cut -d: -f2-)
-            echo "使用 build job 的映像標籤: $IMAGE_TAG"
           else
-            # 生成默認標籤
             SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
             BRANCH=$(echo ${{ github.ref_name }} | sed 's/\//-/g' | tr '[:upper:]' '[:lower:]')
             IMAGE_TAG="${BRANCH}-${SHORT_SHA}"
-            echo "⚠️  build job 輸出為空，使用生成的標籤: $IMAGE_TAG"
           fi
-          
-          # 設置輸出
           echo "tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "full_image=${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG" >> $GITHUB_OUTPUT
-          
-          # 驗證映像是否存在
-          echo "驗證映像是否存在..."
-          if docker manifest inspect ${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG >/dev/null 2>&1; then
-            echo "✅ 映像已確認存在"
-          else
-            echo "❌ 警告: 映像可能不存在，部署可能會失敗"
-            echo "映像路徑: ${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG"
-          fi
-
-      - name: 檢查 Secret 是否存在
-        run: |
-          echo "檢查 deno-web-app-secret 是否存在..."
-          if kubectl get secret deno-web-app-secret -n ${{ env.DEPLOYMENT_NAME }} >/dev/null 2>&1; then
-            echo "✅ Secret deno-web-app-secret 已存在"
-          else
-            echo "❌ Secret deno-web-app-secret 不存在"
-            echo "請先在 GKE 集群中創建 Secret，包含以下鍵："
-            echo "- JWT_SECRET"
-            echo "- DB_USER" 
-            echo "- DB_PASS"
-            exit 1
-          fi
 
       - name: 處理現有 Deployment
         run: |
-          echo "檢查現有 Deployment..."
           if kubectl get deployment deno-web-app -n ${{ env.DEPLOYMENT_NAME }} >/dev/null 2>&1; then
-            echo "發現現有 Deployment，檢查標籤兼容性..."
-            
-            # 檢查是否是 Helm 創建的 (包含額外標籤)
             HELM_LABELS=$(kubectl get deployment deno-web-app -n ${{ env.DEPLOYMENT_NAME }} -o jsonpath='{.spec.selector.matchLabels}' | grep -o 'app\.kubernetes\.io' || echo "")
-            
             if [[ -n "${HELM_LABELS}" ]]; then
-              echo "⚠️  檢測到 Helm 創建的 Deployment，需要刪除並重新創建"
-              echo "刪除現有 Deployment..."
               kubectl delete deployment deno-web-app -n ${{ env.DEPLOYMENT_NAME }}
-              
-              echo "等待 Pod 清理完成..."
               kubectl wait --for=delete pods -l "app.kubernetes.io/name=deno-web-app" -n ${{ env.DEPLOYMENT_NAME }} --timeout=120s || true
-              
-              echo "✅ 現有 Deployment 已清理"
-            else
-              echo "✅ 現有 Deployment 標籤兼容，可以直接更新"
             fi
-          else
-            echo "✅ 沒有現有 Deployment，可以直接創建"
           fi
 
       - name: 部署應用程式到 GKE
         run: |
-          echo "準備部署配置文件..."
-          
-          # 設置正確的映像標籤
           FULL_IMAGE_PATH="${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ steps.prepare-tag.outputs.tag }}"
-          
-          # 先替換映像標籤，再替換 PROJECT_ID
           sed "s|asia-east1-docker.pkg.dev/PROJECT_ID/deno-web-app/deno-web-app:latest|$FULL_IMAGE_PATH|g" k8s-deployment.yaml > deployment-temp.yaml
           sed -i "s/PROJECT_ID/${{ env.PROJECT_ID }}/g" deployment-temp.yaml
-          
-          echo "部署配置："
-          echo "映像路徑: $FULL_IMAGE_PATH"
-          
-          # 應用部署
           kubectl apply -f deployment-temp.yaml
-          
-          # 等待部署完成
-          echo "等待 Deployment 就緒..."
           kubectl rollout status deployment/deno-web-app -n ${{ env.DEPLOYMENT_NAME }} --timeout=600s
-          
-          # 清理臨時文件
           rm -f deployment-temp.yaml
-
-      - name: 驗證部署狀態
-        run: |
-          echo "部署驗證："
-          kubectl get pods -n ${{ env.DEPLOYMENT_NAME }}
-          kubectl get services -n ${{ env.DEPLOYMENT_NAME }}
-          kubectl get ingress -n ${{ env.DEPLOYMENT_NAME }}
-          
-          echo ""
-          echo "等待 Ingress IP 分配..."
-          sleep 30
-          
-          echo "服務訪問資訊："
-          echo "=== Ingress ==="
-          kubectl get ingress deno-web-app-ingress -n ${{ env.DEPLOYMENT_NAME }}
-          
-          echo "=== LoadBalancer Service ==="
-          kubectl get service deno-web-app-service -n ${{ env.DEPLOYMENT_NAME }}
-          
-          # 嘗試獲取 Ingress IP
-          INGRESS_IP=$(kubectl get ingress deno-web-app-ingress -n ${{ env.DEPLOYMENT_NAME }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
-          if [[ -n "${INGRESS_IP}" ]]; then
-            echo ""
-            echo "🌐 應用程式可通過 Ingress 訪問: http://${INGRESS_IP}"
-          else
-            echo ""
-            echo "⏳ Ingress IP 尚未分配，請稍後檢查"
-          fi
