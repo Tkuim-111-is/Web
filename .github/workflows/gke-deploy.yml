@@ -196,12 +196,12 @@ jobs:
         run: |
           echo "準備部署配置文件..."
           
-          # 替換部署文件中的 PROJECT_ID 佔位符
-          sed "s/PROJECT_ID/${{ env.PROJECT_ID }}/g" k8s-deployment.yaml > deployment-temp.yaml
-          
           # 設置正確的映像標籤
           FULL_IMAGE_PATH="${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ steps.prepare-tag.outputs.tag }}"
-          sed -i "s|asia-east1-docker.pkg.dev/PROJECT_ID/deno-web-app/deno-web-app:latest|$FULL_IMAGE_PATH|g" deployment-temp.yaml
+          
+          # 先替換映像標籤，再替換 PROJECT_ID
+          sed "s|asia-east1-docker.pkg.dev/PROJECT_ID/deno-web-app/deno-web-app:latest|$FULL_IMAGE_PATH|g" k8s-deployment.yaml > deployment-temp.yaml
+          sed -i "s/PROJECT_ID/${{ env.PROJECT_ID }}/g" deployment-temp.yaml
           
           echo "部署配置："
           echo "映像路徑: $FULL_IMAGE_PATH"
