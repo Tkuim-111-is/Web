@@ -4,9 +4,9 @@ import { loginRouter } from "./api/auth/login.ts";
 import { learnStatusRouter } from "./api/profile/learn_status.ts";
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
 import { jwtVerify } from "https://deno.land/x/jose@v5.3.0/jwt/verify.ts";
+import { getSecret } from "./utils/secrets.ts";
 
-const JWT_SECRET_RAW = Deno.env.get("JWT_SECRET");
-if (!JWT_SECRET_RAW) throw new Error("JWT_SECRET 未設定");
+const JWT_SECRET_RAW = getSecret("JWT_SECRET");
 const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_RAW);
 
 const app = new Application();

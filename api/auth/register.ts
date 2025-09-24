@@ -2,12 +2,13 @@ import { Router } from "https://deno.land/x/oak/mod.ts";
 import { Client } from "https://deno.land/x/mysql/mod.ts";
 import * as bcrypt from "https://deno.land/x/bcrypt/mod.ts";
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
+import { getSecretOptional } from "../../utils/secrets.ts";
 
 // 讀取資料庫設定
 const dbConfig = {
   hostname: Deno.env.get("DB_HOST") ?? "",
-  username: Deno.env.get("DB_USER") ?? "",
-  password: Deno.env.get("DB_PASS") ?? "",
+  username: getSecretOptional("DB_USER", ""),
+  password: getSecretOptional("DB_PASS", ""),
   db: Deno.env.get("DB_NAME") ?? "",
   debug: false,
 };

@@ -46,15 +46,23 @@ spec:
             - secretRef:
                 name: {{ include "deno-web-app.fullname" . }}-secret
           {{- end }}
-            # 應用機密（從 GCP Secret Manager）
-            - secretRef:
-                name: {{ include "deno-web-app.fullname" . }}-app-secret
+          volumeMounts:
+            - name: secrets-store
+              mountPath: /var/secrets
+              readOnly: true
           livenessProbe:
             {{- toYaml .Values.livenessProbe | nindent 12 }}
           readinessProbe:
             {{- toYaml .Values.readinessProbe | nindent 12 }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store-gke.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ include "deno-web-app.fullname" . }}-secrets
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

@@ -107,3 +107,8 @@ config:
 secrets: {}
   # DB_PASSWORD: ""
   # JWT_SECRET: ""
+
+# GCP 配置
+gcp:
+  # GCP 專案 ID，用於 Secret Manager
+  projectId: ""  # 這將從 GitHub Actions 工作流程中設定
