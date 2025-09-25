@@ -22,13 +22,12 @@ class DenoOTLPExporter {
     this.collectorEndpoint = collectorEndpoint;
   }
 
-  async exportSpan(span: Span): Promise<void> {
+  async exportSpan(span: Span, spanName: string, startTime: number, endTime: number): Promise<void> {
     const spanContext = span.spanContext();
     
     try {
-      // 轉換為 OTLP 格式
+      // 獲取 span 屬性
       const spanData = span as unknown as { 
-        name?: string;
         _attributes?: Record<string, unknown>;
         _status?: { code: SpanStatusCode };
       };
@@ -36,10 +35,10 @@ class DenoOTLPExporter {
       const otlpSpan = {
         traceId: spanContext.traceId,
         spanId: spanContext.spanId,
-        name: spanData.name || "unknown",
+        name: spanName, // 使用傳入的 span 名稱
         kind: 2, // SPAN_KIND_SERVER
-        startTimeUnixNano: Math.floor(Date.now() * 1000000),
-        endTimeUnixNano: Math.floor(Date.now() * 1000000),
+        startTimeUnixNano: Math.floor(startTime * 1000000), // 使用實際開始時間
+        endTimeUnixNano: Math.floor(endTime * 1000000), // 使用實際結束時間
         attributes: spanData._attributes ? Object.entries(spanData._attributes).map(([key, value]) => ({
           key,
           value: { stringValue: value?.toString() || "" }
@@ -219,9 +218,10 @@ app.use(async (ctx: Context, next: Next) => {
   const startTime = Date.now();
   const method = ctx.request.method;
   const path = ctx.request.url.pathname;
+  const spanName = `${method} ${path}`;
   
   // 創建 HTTP 請求 span
-  const span = tracer.startSpan(`${method} ${path}`, {
+  const span = tracer.startSpan(spanName, {
     kind: 2,
     attributes: {
       "http.method": method,
@@ -238,6 +238,8 @@ app.use(async (ctx: Context, next: Next) => {
   try {
     // 將 span 存儲在 context 中，供其他中間件使用
     ctx.state.span = span;
+    ctx.state.spanName = spanName;
+    ctx.state.spanStartTime = startTime;
     
     await next();
     
@@ -266,7 +268,8 @@ app.use(async (ctx: Context, next: Next) => {
     });
     throw error;
   } finally {
-    const duration = Date.now() - startTime;
+    const endTime = Date.now();
+    const duration = endTime - startTime;
     const status = ctx.response.status?.toString() || "200";
     
     // 記錄請求持續時間
@@ -276,7 +279,7 @@ app.use(async (ctx: Context, next: Next) => {
     
     // 結束 span 並導出
     span.end();
-    await exporter.exportSpan(span);
+    await exporter.exportSpan(span, spanName, startTime, endTime);
     
     // 更新 metrics
     metricsCollector.recordHttpDuration(method, path, duration);
@@ -308,7 +311,9 @@ app.use(async (ctx: Context, next: Next) => {
   
   if (auth && auth.startsWith("Bearer ")) {
     // 創建子 span 來追蹤 JWT 驗證過程
-    const jwtSpan = tracer.startSpan("JWT Verification", {
+    const jwtStartTime = Date.now();
+    const jwtSpanName = "JWT Verification";
+    const jwtSpan = tracer.startSpan(jwtSpanName, {
       attributes: {
         "auth.method": "jwt",
         "auth.token_present": true,
@@ -338,8 +343,9 @@ app.use(async (ctx: Context, next: Next) => {
       });
       console.error(`[${new Date().toISOString()}] [ERROR] [JWT] 驗證失敗:`, e);
     } finally {
+      const jwtEndTime = Date.now();
       jwtSpan.end();
-      await exporter.exportSpan(jwtSpan);
+      await exporter.exportSpan(jwtSpan, jwtSpanName, jwtStartTime, jwtEndTime);
     }
   } else {
     // 記錄無認證令牌的情況
