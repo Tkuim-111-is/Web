@@ -284,8 +284,8 @@ data:
               namespace:
               container:
           - match:
-              selector: '{namespace="deno-web-app"}'
-              action: keep
+              selector: '{namespace!="deno-web-app"}'
+              action: drop
           - output:
               source: output
 
