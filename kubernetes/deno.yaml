@@ -101,7 +101,7 @@ metadata:
 spec:
   type: LoadBalancer
   ports:
-  - port: 443
+  - port: 80
     targetPort: 8000
     protocol: TCP
     name: http
@@ -138,4 +138,4 @@ spec:
           service:
             name: deno-web-app-service
             port:
-              number: 443
+              number: 80
