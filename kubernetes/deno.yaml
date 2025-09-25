@@ -46,6 +46,12 @@ spec:
           value: "deno-web-app"
         - name: SERVICE_VERSION
           value: "1.0.0"
+        - name: OTEL_COLLECTOR_ENDPOINT
+          value: "otel-collector:4318"
+        - name: OTEL_SERVICE_NAME
+          value: "deno-web-app"
+        - name: OTEL_SERVICE_VERSION  
+          value: "1.0.0"
         
         - name: JWT_SECRET
           valueFrom:
