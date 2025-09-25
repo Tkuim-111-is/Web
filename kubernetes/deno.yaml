@@ -108,15 +108,29 @@ spec:
   selector:
     app: deno-web-app
 ---
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: deno-web-app-managed-certificate
+  namespace: deno-web-app
+spec:
+  domains:
+  - "surecurity.org"
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: deno-web-app-ingress
   namespace: deno-web-app
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    kubernetes.io/ingress.global-static-ip-name: "deno-gke-ip"
+    networking.gke.io/managed-certificates: "deno-web-app-managed-certificate"
 spec:
   ingressClassName: gce
   rules:
-  - http:
+  - host: surecurity.org
+    http:
       paths:
       - path: /
         pathType: Prefix
