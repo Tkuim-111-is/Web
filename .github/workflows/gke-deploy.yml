@@ -150,6 +150,18 @@ jobs:
           echo "部署 MySQL 資料庫..."
           kubectl apply -f kubernetes/mysql.yaml
 
+      - name: 處理現有 Grafana Deployment
+        run: |
+          if kubectl get deployment grafana -n ${{ env.DEPLOYMENT_NAME }} >/dev/null 2>&1; then
+            echo "發現現有的 Grafana deployment，檢查是否需要更新..."
+            kubectl rollout status deployment/grafana -n ${{ env.DEPLOYMENT_NAME }} --timeout=60s || true
+          fi
+
+      - name: 部署 Grafana 到 GKE
+        run: |
+          echo "部署 Grafana 資料庫..."
+          kubectl apply -f kubernetes/grafana.yml
+      
       - name: 部署應用程式到 GKE
         run: |
           echo "部署 deno-web-app 應用程式..."
