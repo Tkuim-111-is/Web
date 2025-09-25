@@ -2,10 +2,8 @@ name: 構建並部署到 GKE
 
 on:
   push:
-    branches: [develop , "Set/GKE"]
+    branches: [develop , "Add/Grafana"]
     tags: ["v*.*.*"]
-  pull_request:
-    branches: ["develop"]
 
 permissions:
   contents: read
