@@ -283,9 +283,6 @@ data:
               pod_name:
               namespace:
               container:
-          - match:
-              selector: '{namespace!="deno-web-app"}'
-              action: drop
           - output:
               source: output
 
