@@ -52,6 +52,8 @@ spec:
           value: "deno-web-app"
         - name: OTEL_SERVICE_VERSION  
           value: "1.0.0"
+        - name: OTEL_DENO
+          value: "true"
         
         - name: JWT_SECRET
           valueFrom:

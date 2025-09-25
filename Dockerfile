@@ -10,10 +10,11 @@ RUN deno cache server.ts
 
 # 設定環境變數
 ENV PORT=8000
+ENV HOST=0.0.0.0
+ENV OTEL_DENO=true
 
 # 開放端口
 EXPOSE 8000
-ENV HOST=0.0.0.0
 
 # 啟動應用
-CMD ["OTEL_DENO=true", "deno", "run", "--allow-net", "--allow-read", "--allow-env", "--allow-write", "server.ts"]
+CMD ["deno", "run", "--allow-net", "--allow-read", "--allow-env", "--allow-write", "server.ts"]
