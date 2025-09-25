@@ -1,0 +1,305 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loki-config
+  namespace: deno-web-app
+  labels:
+    app: loki
+data:
+  loki.yaml: |
+    auth_enabled: false
+    
+    server:
+      http_listen_port: 3100
+      grpc_listen_port: 9096
+      log_level: info
+      
+    common:
+      path_prefix: /tmp/loki
+      storage:
+        filesystem:
+          chunks_directory: /tmp/loki/chunks
+          rules_directory: /tmp/loki/rules
+      replication_factor: 1
+      ring:
+        instance_addr: 127.0.0.1
+        kvstore:
+          store: inmemory
+          
+    query_range:
+      results_cache:
+        cache:
+          embedded_cache:
+            enabled: true
+            max_size_mb: 100
+            
+    schema_config:
+      configs:
+        - from: 2020-10-24
+          store: boltdb-shipper
+          object_store: filesystem
+          schema: v11
+          index:
+            prefix: index_
+            period: 24h
+            
+    ruler:
+      alertmanager_url: http://prometheus:9090
+      
+    # Table Manager Config
+    table_manager:
+      retention_deletes_enabled: true
+      retention_period: 336h  # 14 days
+      
+    limits_config:
+      enforce_metric_name: false
+      reject_old_samples: true
+      reject_old_samples_max_age: 168h
+      max_cache_freshness_per_query: 10m
+      split_queries_by_interval: 15m
+
+---
+# Loki PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: loki-pvc
+  namespace: deno-web-app
+  labels:
+    app: loki
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: standard-rwo
+
+---
+# Loki Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loki
+  namespace: deno-web-app
+  labels:
+    app: loki
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: loki
+  template:
+    metadata:
+      labels:
+        app: loki
+    spec:
+      serviceAccountName: loki
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: loki
+          image: grafana/loki:2.9.0
+          args:
+            - -config.file=/etc/loki/loki.yaml
+            - -target=all
+          ports:
+            - containerPort: 3100
+              name: http-metrics
+              protocol: TCP
+            - containerPort: 9096
+              name: grpc
+              protocol: TCP
+          volumeMounts:
+            - name: loki-config
+              mountPath: /etc/loki
+            - name: loki-storage
+              mountPath: /tmp/loki
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 200m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http-metrics
+            initialDelaySeconds: 45
+            periodSeconds: 10
+            timeoutSeconds: 1
+            successThreshold: 1
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: http-metrics
+            initialDelaySeconds: 45
+            periodSeconds: 10
+            timeoutSeconds: 1
+            successThreshold: 1
+            failureThreshold: 3
+      volumes:
+        - name: loki-config
+          configMap:
+            name: loki-config
+        - name: loki-storage
+          persistentVolumeClaim:
+            claimName: loki-pvc
+
+---
+# Loki Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki
+  namespace: deno-web-app
+  labels:
+    app: loki
+spec:
+  ports:
+    - port: 3100
+      protocol: TCP
+      targetPort: http-metrics
+      name: http-metrics
+    - port: 9096
+      protocol: TCP
+      targetPort: 9096
+      name: grpc
+  selector:
+    app: loki
+  type: ClusterIP
+
+---
+# Promtail DaemonSet - 用於收集容器日誌
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: promtail
+  namespace: deno-web-app
+  labels:
+    app: promtail
+spec:
+  selector:
+    matchLabels:
+      app: promtail
+  template:
+    metadata:
+      labels:
+        app: promtail
+    spec:
+      serviceAccountName: promtail
+      containers:
+        - name: promtail
+          image: grafana/promtail:2.9.0
+          args:
+            - -config.file=/etc/promtail/config.yml
+            - -client.url=http://loki:3100/loki/api/v1/push
+          volumeMounts:
+            - name: config
+              mountPath: /etc/promtail
+            - name: varlog
+              mountPath: /var/log
+              readOnly: true
+          env:
+            - name: HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+      tolerations:
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: NoSchedule
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      volumes:
+        - name: config
+          configMap:
+            name: promtail-config
+        - name: varlog
+          hostPath:
+            path: /var/log
+---
+# Promtail ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: promtail-config
+  namespace: deno-web-app
+  labels:
+    app: promtail
+data:
+  config.yml: |
+    server:
+      http_listen_port: 9080
+      grpc_listen_port: 0
+
+    positions:
+      filename: /tmp/positions.yaml
+
+    clients:
+      - url: http://loki:3100/loki/api/v1/push
+
+    scrape_configs:
+      - job_name: containers
+        static_configs:
+          - targets:
+              - localhost
+            labels:
+              job: containerlogs
+              __path__: /var/log/containers/*log
+
+        pipeline_stages:
+          - json:
+              expressions:
+                output: log
+                stream: stream
+                attrs:
+          - json:
+              expressions:
+                tag: attrs.tag
+              source: attrs
+          - regex:
+              expression: (?P<container_name>(?:[^/]*/)*)(?P<pod_name>[^_]+)_(?P<namespace>[^_]+)_(?P<container>.+)-(?P<container_id>[a-z0-9]{64})\.log
+              source: filename
+          - timestamp:
+              format: RFC3339Nano
+              source: time
+          - labels:
+              stream:
+              container_name:
+              pod_name:
+              namespace:
+              container:
+          - output:
+              source: output
+
+---
+# Promtail ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: promtail
+  namespace: deno-web-app
+
+---
+# Loki ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: loki
+  namespace: deno-web-app
+  labels:
+    app: loki

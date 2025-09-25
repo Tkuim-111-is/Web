@@ -20,6 +20,7 @@ spec:
       labels:
         app: deno-web-app
     spec:
+      serviceAccountName: deno-web-app
       containers:
       - name: deno-web-app
         image: asia-east1-docker.pkg.dev/PROJECT_ID/deno-web-app/deno-web-app:latest
@@ -45,6 +46,14 @@ spec:
           value: "deno-web-app"
         - name: SERVICE_VERSION
           value: "1.0.0"
+        - name: OTEL_COLLECTOR_ENDPOINT
+          value: "otel-collector:4318"
+        - name: OTEL_SERVICE_NAME
+          value: "deno-web-app"
+        - name: OTEL_SERVICE_VERSION  
+          value: "1.0.0"
+        - name: OTEL_DENO
+          value: "true"
         
         - name: JWT_SECRET
           valueFrom:
@@ -139,3 +148,13 @@ spec:
             name: deno-web-app-service
             port:
               number: 80
+
+---
+# Deno Web App ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: deno-web-app
+  namespace: deno-web-app
+  labels:
+    app: deno-web-app
