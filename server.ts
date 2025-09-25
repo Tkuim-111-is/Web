@@ -15,6 +15,8 @@ class DenoOTLPExporter {
   private collectorEndpoint: string;
   private serviceName: string;
   private serviceVersion: string;
+  private spanBuffer: Array<{ span: Span; spanName: string; startTime: number; endTime: number; parentSpanId?: string }> = [];
+  private batchTimeout: number | null = null;
 
   constructor(serviceName: string, serviceVersion: string, collectorEndpoint: string) {
     this.serviceName = serviceName;
@@ -22,31 +24,57 @@ class DenoOTLPExporter {
     this.collectorEndpoint = collectorEndpoint;
   }
 
-  async exportSpan(span: Span, spanName: string, startTime: number, endTime: number): Promise<void> {
-    const spanContext = span.spanContext();
+  // 批量導出 spans
+  async exportSpan(span: Span, spanName: string, startTime: number, endTime: number, parentSpanId?: string): Promise<void> {
+    // 將 span 加入緩衝區
+    this.spanBuffer.push({ span, spanName, startTime, endTime, parentSpanId });
+    
+    // 立即導出（確保數據可見性）
+    await this.flushSpans();
+  }
+
+  private async flushSpans(): Promise<void> {
+    if (this.spanBuffer.length === 0) return;
     
     try {
-      // 獲取 span 屬性
-      const spanData = span as unknown as { 
-        _attributes?: Record<string, unknown>;
-        _status?: { code: SpanStatusCode };
-      };
-      
-      const otlpSpan = {
-        traceId: spanContext.traceId,
-        spanId: spanContext.spanId,
-        name: spanName, // 使用傳入的 span 名稱
-        kind: 2, // SPAN_KIND_SERVER
-        startTimeUnixNano: Math.floor(startTime * 1000000), // 使用實際開始時間
-        endTimeUnixNano: Math.floor(endTime * 1000000), // 使用實際結束時間
-        attributes: spanData._attributes ? Object.entries(spanData._attributes).map(([key, value]) => ({
+      const spans = this.spanBuffer.splice(0); // 取出所有spans並清空緩衝區
+      const otlpSpans = spans.map(({ span, spanName, startTime, endTime, parentSpanId }) => {
+        const spanContext = span.spanContext();
+        const spanData = span as unknown as { 
+          _attributes?: Record<string, unknown>;
+          _status?: { code: SpanStatusCode };
+        };
+        
+        // 確保所有必要的屬性都被正確設置
+        const baseAttributes = [
+          { key: "service.name", value: { stringValue: this.serviceName } },
+          { key: "service.version", value: { stringValue: this.serviceVersion } },
+          { key: "service.namespace", value: { stringValue: "deno-web-app" } },
+          { key: "span.name", value: { stringValue: spanName } }
+        ];
+
+        const customAttributes = spanData._attributes ? Object.entries(spanData._attributes).map(([key, value]) => ({
           key,
           value: { stringValue: value?.toString() || "" }
-        })) : [],
-        status: {
-          code: spanData._status?.code === SpanStatusCode.ERROR ? 2 : 1
-        }
-      };
+        })) : [];
+
+        return {
+          traceId: spanContext.traceId,
+          spanId: spanContext.spanId,
+          parentSpanId: parentSpanId || undefined,
+          name: spanName,
+          kind: parentSpanId ? 3 : 2, // INTERNAL(3) 或 SERVER(2)
+          startTimeUnixNano: Math.floor(startTime * 1000000),
+          endTimeUnixNano: Math.floor(endTime * 1000000),
+          attributes: [...baseAttributes, ...customAttributes],
+          status: {
+            code: spanData._status?.code === SpanStatusCode.ERROR ? 2 : 1,
+            message: spanData._status?.code === SpanStatusCode.ERROR ? "Error" : "OK"
+          },
+          // 添加 flags 確保 trace 被正確識別
+          flags: 1
+        };
+      });
 
       const payload = {
         resourceSpans: [{
@@ -54,7 +82,9 @@ class DenoOTLPExporter {
             attributes: [
               { key: "service.name", value: { stringValue: this.serviceName } },
               { key: "service.version", value: { stringValue: this.serviceVersion } },
-              { key: "service.namespace", value: { stringValue: "deno-web-app" } }
+              { key: "service.namespace", value: { stringValue: "deno-web-app" } },
+              // 添加時間戳確保數據新鮮度
+              { key: "export.timestamp", value: { stringValue: new Date().toISOString() } }
             ]
           },
           scopeSpans: [{
@@ -62,7 +92,7 @@ class DenoOTLPExporter {
               name: "deno-web-app-tracer",
               version: "1.0.0"
             },
-            spans: [otlpSpan]
+            spans: otlpSpans
           }]
         }]
       };
@@ -73,6 +103,7 @@ class DenoOTLPExporter {
         `http://otel-collector.deno-web-app.svc.cluster.local:4318/v1/traces`
       ];
 
+      let sent = false;
       for (const endpoint of endpoints) {
         try {
           const response = await fetch(endpoint, {
@@ -86,13 +117,18 @@ class DenoOTLPExporter {
           });
 
           if (response.ok) {
-            console.log(`[${new Date().toISOString()}] [INFO] [tracing] 成功發送 trace 數據到 ${endpoint}`);
-            return;
+            console.log(`[${new Date().toISOString()}] [INFO] [tracing] 成功發送 ${otlpSpans.length} 個 spans 到 ${endpoint}`);
+            sent = true;
+            break;
           }
         } catch (endpointError) {
           console.warn(`[${new Date().toISOString()}] [WARN] [tracing] ${endpoint} 連接失敗:`, endpointError);
           continue;
         }
+      }
+
+      if (!sent) {
+        console.error(`[${new Date().toISOString()}] [ERROR] [tracing] 所有端點都無法發送 ${otlpSpans.length} 個 spans`);
       }
 
     } catch (error) {
@@ -279,6 +315,7 @@ app.use(async (ctx: Context, next: Next) => {
     
     // 結束 span 並導出
     span.end();
+    // HTTP 請求 span 是 root span，不設置 parentSpanId
     await exporter.exportSpan(span, spanName, startTime, endTime);
     
     // 更新 metrics
@@ -345,7 +382,7 @@ app.use(async (ctx: Context, next: Next) => {
     } finally {
       const jwtEndTime = Date.now();
       jwtSpan.end();
-      await exporter.exportSpan(jwtSpan, jwtSpanName, jwtStartTime, jwtEndTime);
+      await exporter.exportSpan(jwtSpan, jwtSpanName, jwtStartTime, jwtEndTime, parentSpan.spanContext().spanId);
     }
   } else {
     // 記錄無認證令牌的情況
