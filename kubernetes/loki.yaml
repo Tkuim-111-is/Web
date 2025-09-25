@@ -305,41 +305,6 @@ metadata:
   namespace: deno-web-app
 
 ---
-# Promtail ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: promtail
-rules:
-  - apiGroups:
-      - ""
-    resources:
-      - nodes
-      - nodes/proxy
-      - services
-      - endpoints
-      - pods
-    verbs:
-      - get
-      - watch
-      - list
-
----
-# Promtail ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: promtail
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: promtail
-subjects:
-  - kind: ServiceAccount
-    name: promtail
-    namespace: deno-web-app
-
----
 # Loki ServiceAccount
 apiVersion: v1
 kind: ServiceAccount
