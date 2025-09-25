@@ -2,66 +2,66 @@ name: 構建並部署到 GKE
 
 on:
   push:
-    branches: ["develop", "release", "Add/Docker"]
+    branches: [develop , "Set/GKE"]
     tags: ["v*.*.*"]
   pull_request:
-    branches: ["develop", "release"]
+    branches: ["develop"]
 
 permissions:
   contents: read
   packages: write
+  id-token: write
 
 env:
   PROJECT_ID: ${{ secrets.GKE_PROJECT }}
   GKE_CLUSTER: ${{ secrets.GKE_CLUSTER }}
   GKE_ZONE: ${{ secrets.GKE_ZONE }}
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  REGISTRY_URL: asia-east1-docker.pkg.dev 
+  GCP_PROJECT_NUMBER: '1061852642455' 
+  REPOSITORY_NAME: deno-web-app
+  IMAGE_NAME: deno-web-app
   DEPLOYMENT_NAME: deno-web-app
 
 jobs:
   build:
     name: 構建並推送 Docker 映像
     runs-on: ubuntu-latest
-    outputs:
-      image_tag: ${{ steps.image-tag.outputs.tag }}
 
     steps:
-      - name: downcase IMAGE_NAME
-        run: |
-          echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >>${GITHUB_ENV}
       - name: 檢出代碼
         uses: actions/checkout@v4
 
       - name: 設置 Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: 登入容器註冊表
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
+        
+      - id: 'auth'
+        name: '使用 WIF 驗證到 GCP'
+        uses: 'google-github-actions/auth@v2'
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          workload_identity_provider: 'projects/${{ env.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider'
+          service_account: 'github-actions-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com'
+
+      - name: 登入 Artifact Registry
+        run: |-
+          gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://${{ env.REGISTRY_URL }}
 
       - name: 設置映像標籤
         id: image-tag
         run: |
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
             TAG_NAME=$(echo "${{ github.ref_name }}" | tr '[:upper:]' '[:lower:]')
-            echo "tag=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG_NAME}" >> $GITHUB_OUTPUT
+            echo "tag=${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${TAG_NAME}" >> $GITHUB_OUTPUT
           else
             SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
             BRANCH=$(echo ${{ github.ref_name }} | sed 's/\//-/g' | tr '[:upper:]' '[:lower:]')
-            echo "tag=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${BRANCH}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+            echo "tag=${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${BRANCH}-${SHORT_SHA}" >> $GITHUB_OUTPUT
           fi
-          echo "使用的映像標籤: $(cat $GITHUB_OUTPUT | grep tag= | cut -d= -f2)"
 
       - name: 提取 Docker 元數據
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -73,120 +73,92 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ github.event_name!= 'pull_request' }}
           tags: ${{ steps.image-tag.outputs.tag }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          
-      - name: 驗證映像是否已推送
-        if: github.event_name != 'pull_request'
-        run: |
-          echo "檢查映像是否已成功推送: ${{ steps.image-tag.outputs.tag }}"
-          # 使用 GitHub 令牌獲取映像清單
-          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://ghcr.io/v2/${{ env.IMAGE_NAME }}/tags/list || echo "映像可能已推送但無法驗證"
 
   deploy:
-    name: 部署到 GKE
-    needs: build
+    name: 部署到 GKE 叢集
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
+    needs: build
+    if: github.event_name!= 'pull_request'
 
     steps:
       - name: 檢出代碼
         uses: actions/checkout@v4
 
-      - name: 驗證 Google Cloud
-        uses: google-github-actions/auth@v2
+      - id: 'auth'
+        name: '使用 WIF 驗證到 GCP'
+        uses: 'google-github-actions/auth@v2'
         with:
-          credentials_json: ${{ secrets.GKE_SA_KEY }}
+          workload_identity_provider: 'projects/${{ env.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider'
+          service_account: 'github-actions-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com'
+
+      - name: 設置 GKE 認證
+        uses: google-github-actions/get-gke-credentials@v3
+        with:
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GKE_ZONE }}
           project_id: ${{ env.PROJECT_ID }}
 
-      - name: 設置 gcloud CLI
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          install_components: 'gke-gcloud-auth-plugin'
-
-      - name: 設置 Kubernetes 工具
-        uses: azure/setup-kubectl@v3
-
-      - name: 設置 Kustomize
-        uses: imranismail/setup-kustomize@v2
-
-      - name: 獲取 GKE 憑證
+      - name: 創建命名空間
         run: |
-          gcloud container clusters get-credentials ${{ env.GKE_CLUSTER }} \
-            --zone ${{ env.GKE_ZONE }} \
-            --project ${{ env.PROJECT_ID }}
+          kubectl create namespace ${{ env.DEPLOYMENT_NAME }} --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: 準備 Kubernetes 配置
+      - name: 創建 Docker Registry Secret
         run: |
-          cd k8s
-          
-          # 獲取並處理映像標籤
-          IMAGE_TAG="${{ needs.build.outputs.image_tag }}"
-          IMAGE_TAG_LOWER=$(echo "$IMAGE_TAG" | tr '[:upper:]' '[:lower:]')
-          echo "使用映像標籤: $IMAGE_TAG_LOWER"
-          
-          # 創建命名空間（如果不存在）
-          kubectl create namespace deno-web --dry-run=client -o yaml | kubectl apply -f -
-          
-          # 刪除舊的 Secret（如果存在）
-          kubectl delete secret ghcr-auth -n deno-web --ignore-not-found=true
-          
-          # 創建用於拉取 GitHub 容器的 Secret
           kubectl create secret docker-registry ghcr-auth \
-            --namespace=deno-web \
-            --docker-server=ghcr.io \
-            --docker-username=${{ github.actor }} \
-            --docker-password=${{ secrets.GITHUB_TOKEN }} \
-            --docker-email=${{ github.actor }}@users.noreply.github.com
-          
-          # 驗證 Secret 創建
-          kubectl get secret ghcr-auth -n deno-web
-          
-          # 替換映像標籤
-          sed -i "s|image: ghcr.io/tkuim-111-is/web:latest|image: $IMAGE_TAG_LOWER|g" deployment.yaml
-          
-          # 顯示最終的部署文件
-          echo "最終的 deployment.yaml 內容："
-          cat deployment.yaml
+            --namespace ${{ env.DEPLOYMENT_NAME }} \
+            --docker-server=${{ env.REGISTRY_URL }} \
+            --docker-username=oauth2accesstoken \
+            --docker-password=$(gcloud auth print-access-token) \
+            --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: 部署到 GKE
+      - name: 準備映像標籤
+        id: prepare-tag
         run: |
-          cd k8s
-          
-          # 使用 kustomize 生成最終配置
-          kustomize build . > generated-manifests.yaml
-          
-          echo "生成的部署清單："
-          cat generated-manifests.yaml
-          
-          # 應用配置
-          kubectl apply -f generated-manifests.yaml
-          
-          # 等待部署完成
-          kubectl rollout status deployment/${{ env.DEPLOYMENT_NAME }} -n deno-web --timeout=600s
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            TAG_NAME=$(echo "${{ github.ref_name }}" | tr '[:upper:]' '[:lower:]')
+            IMAGE_TAG="${TAG_NAME}"
+          else
+            SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+            BRANCH=$(echo ${{ github.ref_name }} | sed 's/\//-/g' | tr '[:upper:]' '[:lower:]')
+            IMAGE_TAG="${BRANCH}-${SHORT_SHA}"
+          fi
+          echo "tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "full_image=${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: 驗證部署
-        if: success() || failure()  # 即使前一步驟失敗也執行
+      - name: 處理現有 Deployment
         run: |
-          echo "檢查部署資源狀態..."
-          kubectl get deployments,pods,services,ingress -n deno-web -o wide
-          
-          # 檢查 Pod 事件，特別關注映像拉取錯誤
-          echo "檢查最新 Pod 事件..."
-          kubectl get events -n deno-web --sort-by='.lastTimestamp' | grep -i "image\|pull\|error\|fail"
-          
-          # 檢查 Pod 狀態詳情
-          echo "檢查 Pod 詳細狀態..."
-          PODS=$(kubectl get pods -n deno-web -l app=deno-web-app -o jsonpath='{.items[*].metadata.name}')
-          for POD in $PODS; do
-            echo "Pod $POD 的詳細資訊:"
-            kubectl describe pod $POD -n deno-web | grep -A 10 "Events:"
-            
-            echo "Pod $POD 的日誌:"
-            kubectl logs -n deno-web $POD --tail=50 || echo "無法獲取日誌"
-          done
-          
-          echo "部署完成！應用已部署到 GKE。"
+          if kubectl get deployment deno-web-app -n ${{ env.DEPLOYMENT_NAME }} >/dev/null 2>&1; then
+            HELM_LABELS=$(kubectl get deployment deno-web-app -n ${{ env.DEPLOYMENT_NAME }} -o jsonpath='{.spec.selector.matchLabels}' | grep -o 'app\.kubernetes\.io' || echo "")
+            if [[ -n "${HELM_LABELS}" ]]; then
+              kubectl delete deployment deno-web-app -n ${{ env.DEPLOYMENT_NAME }}
+              kubectl wait --for=delete pods -l "app.kubernetes.io/name=deno-web-app" -n ${{ env.DEPLOYMENT_NAME }} --timeout=120s || true
+            fi
+          fi
+
+      - name: 處理現有 MySQL Deployment
+        run: |
+          if kubectl get deployment mysql -n ${{ env.DEPLOYMENT_NAME }} >/dev/null 2>&1; then
+            echo "發現現有的 MySQL deployment，檢查是否需要更新..."
+            kubectl rollout status deployment/mysql -n ${{ env.DEPLOYMENT_NAME }} --timeout=60s || true
+          fi
+
+      - name: 部署 MySQL 到 GKE
+        run: |
+          echo "部署 MySQL 資料庫..."
+          kubectl apply -f kubernetes/mysql.yaml
+
+      - name: 部署應用程式到 GKE
+        run: |
+          echo "部署 deno-web-app 應用程式..."
+          FULL_IMAGE_PATH="${{ env.REGISTRY_URL }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ steps.prepare-tag.outputs.tag }}"
+          sed "s|asia-east1-docker.pkg.dev/PROJECT_ID/deno-web-app/deno-web-app:latest|$FULL_IMAGE_PATH|g" kubernetes/deno.yaml > deployment-temp.yaml
+          sed -i "s/PROJECT_ID/${{ env.PROJECT_ID }}/g" deployment-temp.yaml
+          kubectl apply -f deployment-temp.yaml
+          kubectl rollout status deployment/deno-web-app -n ${{ env.DEPLOYMENT_NAME }} --timeout=600s
+          rm -f deployment-temp.yaml
+          echo "應用程式部署完成！"

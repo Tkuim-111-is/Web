@@ -1,4 +1,4 @@
-import { Router } from "https://deno.land/x/oak/mod.ts";
+import { Router } from "https://deno.land/x/oak@v17.1.6/mod.ts";
 import { Client } from "https://deno.land/x/mysql/mod.ts";
 // JWT 功能保留以備未來使用（如 token 刷新、自定義驗證等）
 import { create as _create, verify as _verify, getNumericDate as _getNumericDate } from "https://deno.land/x/djwt@v2.8/mod.ts";

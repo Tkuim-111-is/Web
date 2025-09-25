@@ -5,3 +5,4 @@ node_modules
 github-gke-deployer-key.json
 /scripts
 .DS_Store
+deno.lock
