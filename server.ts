@@ -4,30 +4,17 @@ import { loginRouter } from "./api/auth/login.ts";
 import { learnStatusRouter } from "./api/profile/learn_status.ts";
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
 import { jwtVerify } from "https://deno.land/x/jose@v5.3.0/jwt/verify.ts";
+import { trace, Span, SpanStatusCode } from "npm:@opentelemetry/api@1";
 
 // ==========================
-// 分散式追蹤設定 (Deno 原生實現)
+// OpenTelemetry 追蹤設定
 // ==========================
 
-interface Span {
-  traceId: string;
-  spanId: string;
-  parentSpanId?: string;
-  operationName: string;
-  startTime: number;
-  endTime?: number;
-  tags: Record<string, string | number | boolean>;
-  logs: { timestamp: number; fields: Record<string, unknown> }[];
-  status: "ok" | "error";
-  duration?: number;
-}
-
-class SimpleTracer {
-  private spans: Map<string, Span> = new Map();
-  private activeSpans: Map<string, string> = new Map(); // contextId -> spanId
+// 創建 OTLP 導出器
+class DenoOTLPExporter {
+  private collectorEndpoint: string;
   private serviceName: string;
   private serviceVersion: string;
-  private collectorEndpoint: string;
 
   constructor(serviceName: string, serviceVersion: string, collectorEndpoint: string) {
     this.serviceName = serviceName;
@@ -35,95 +22,30 @@ class SimpleTracer {
     this.collectorEndpoint = collectorEndpoint;
   }
 
-  private generateId(): string {
-    return crypto.randomUUID().replace(/-/g, '').substring(0, 16);
-  }
-
-  private generateTraceId(): string {
-    return crypto.randomUUID().replace(/-/g, '');
-  }
-
-  startSpan(operationName: string, parentSpanId?: string): Span {
-    const span: Span = {
-      traceId: parentSpanId ? this.spans.get(parentSpanId)?.traceId || this.generateTraceId() : this.generateTraceId(),
-      spanId: this.generateId(),
-      parentSpanId,
-      operationName,
-      startTime: Date.now(),
-      tags: {
-        "service.name": this.serviceName,
-        "service.version": this.serviceVersion,
-      },
-      logs: [],
-      status: "ok"
-    };
-
-    this.spans.set(span.spanId, span);
-    return span;
-  }
-
-  finishSpan(spanId: string, tags?: Record<string, string | number | boolean>): void {
-    const span = this.spans.get(spanId);
-    if (!span) return;
-
-    span.endTime = Date.now();
-    span.duration = span.endTime - span.startTime;
+  async exportSpan(span: Span): Promise<void> {
+    const spanContext = span.spanContext();
     
-    if (tags) {
-      span.tags = { ...span.tags, ...tags };
-    }
-
-    // 發送到 OpenTelemetry Collector
-    this.exportSpan(span);
-  }
-
-  addSpanTags(spanId: string, tags: Record<string, string | number | boolean>): void {
-    const span = this.spans.get(spanId);
-    if (span) {
-      span.tags = { ...span.tags, ...tags };
-    }
-  }
-
-  logError(spanId: string, error: Error): void {
-    const span = this.spans.get(spanId);
-    if (span) {
-      span.status = "error";
-      span.logs.push({
-        timestamp: Date.now(),
-        fields: {
-          "level": "error",
-          "message": error.message,
-          "stack": error.stack,
-        }
-      });
-    }
-  }
-
-  private async exportSpan(span: Span): Promise<void> {
     try {
-      // 轉換為 OpenTelemetry 格式
+      // 轉換為 OTLP 格式
+      const spanData = span as unknown as { 
+        name?: string;
+        _attributes?: Record<string, unknown>;
+        _status?: { code: SpanStatusCode };
+      };
+      
       const otlpSpan = {
-        traceId: span.traceId,
-        spanId: span.spanId,
-        parentSpanId: span.parentSpanId,
-        name: span.operationName,
+        traceId: spanContext.traceId,
+        spanId: spanContext.spanId,
+        name: spanData.name || "unknown",
         kind: 2, // SPAN_KIND_SERVER
-        startTimeUnixNano: span.startTime * 1000000,
-        endTimeUnixNano: span.endTime ? span.endTime * 1000000 : Date.now() * 1000000,
-        attributes: Object.entries(span.tags).map(([key, value]) => ({
+        startTimeUnixNano: Math.floor(Date.now() * 1000000),
+        endTimeUnixNano: Math.floor(Date.now() * 1000000),
+        attributes: spanData._attributes ? Object.entries(spanData._attributes).map(([key, value]) => ({
           key,
-          value: { stringValue: value.toString() }
-        })),
-        events: span.logs.map(log => ({
-          timeUnixNano: log.timestamp * 1000000,
-          name: "log",
-          attributes: Object.entries(log.fields).map(([key, value]) => ({
-            key,
-            value: { stringValue: value?.toString() || "" }
-          }))
-        })),
+          value: { stringValue: value?.toString() || "" }
+        })) : [],
         status: {
-          code: span.status === "ok" ? 1 : 2
+          code: spanData._status?.code === SpanStatusCode.ERROR ? 2 : 1
         }
       };
 
@@ -132,11 +54,12 @@ class SimpleTracer {
           resource: {
             attributes: [
               { key: "service.name", value: { stringValue: this.serviceName } },
-              { key: "service.version", value: { stringValue: this.serviceVersion } }
+              { key: "service.version", value: { stringValue: this.serviceVersion } },
+              { key: "service.namespace", value: { stringValue: "deno-web-app" } }
             ]
           },
-          instrumentationLibrarySpans: [{
-            instrumentationLibrary: {
+          scopeSpans: [{
+            scope: {
               name: "deno-web-app-tracer",
               version: "1.0.0"
             },
@@ -145,13 +68,33 @@ class SimpleTracer {
         }]
       };
 
-      await fetch(`http://${this.collectorEndpoint}/v1/traces`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-      });
+      // 嘗試多個端點
+      const endpoints = [
+        `http://${this.collectorEndpoint}/v1/traces`,
+        `http://otel-collector.deno-web-app.svc.cluster.local:4318/v1/traces`
+      ];
+
+      for (const endpoint of endpoints) {
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(5000)
+          });
+
+          if (response.ok) {
+            console.log(`[${new Date().toISOString()}] [INFO] [tracing] 成功發送 trace 數據到 ${endpoint}`);
+            return;
+          }
+        } catch (endpointError) {
+          console.warn(`[${new Date().toISOString()}] [WARN] [tracing] ${endpoint} 連接失敗:`, endpointError);
+          continue;
+        }
+      }
 
     } catch (error) {
       console.error(`[${new Date().toISOString()}] [ERROR] [tracing] 無法發送 trace 數據:`, error);
@@ -159,12 +102,17 @@ class SimpleTracer {
   }
 }
 
-// 初始化 tracer
-const tracer = new SimpleTracer(
-  "deno-web-app",
-  "1.0.0", 
-  Deno.env.get("OTEL_COLLECTOR_ENDPOINT") || "otel-collector:4318"
-);
+// 初始化 OpenTelemetry
+const serviceName = "deno-web-app";
+const serviceVersion = "1.0.0";
+const collectorEndpoint = Deno.env.get("OTEL_COLLECTOR_ENDPOINT") || "otel-collector:4318";
+
+const exporter = new DenoOTLPExporter(serviceName, serviceVersion, collectorEndpoint);
+
+// 創建 tracer
+const tracer = trace.getTracer(serviceName, serviceVersion);
+
+console.log(`[${new Date().toISOString()}] [INFO] [tracing] OpenTelemetry 初始化完成`);
 
 class MetricsCollector {
   private httpRequestsTotal = new Map<string, number>();
@@ -255,8 +203,6 @@ class MetricsCollector {
 
 const metricsCollector = new MetricsCollector();
 
-console.log(`[${new Date().toISOString()}] [INFO] [tracing] Deno 原生追蹤器初始化完成`);
-
 const JWT_SECRET_RAW = Deno.env.get("JWT_SECRET");
 if (!JWT_SECRET_RAW) throw new Error("JWT_SECRET 未設定");
 const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_RAW);
@@ -268,21 +214,23 @@ const router = new Router();
 // 中間件區塊
 // ==========================
 
-// 分散式追蹤和指標收集中間件
+// OpenTelemetry 追蹤和指標收集中間件
 app.use(async (ctx: Context, next: Next) => {
   const startTime = Date.now();
   const method = ctx.request.method;
   const path = ctx.request.url.pathname;
   
   // 創建 HTTP 請求 span
-  const span = tracer.startSpan(`${method} ${path}`);
-  
-  // 添加 HTTP 相關標籤
-  tracer.addSpanTags(span.spanId, {
-    "http.method": method,
-    "http.url": ctx.request.url.toString(),
-    "http.route": path,
-    "http.user_agent": ctx.request.headers.get("user-agent") || "",
+  const span = tracer.startSpan(`${method} ${path}`, {
+    kind: 2,
+    attributes: {
+      "http.method": method,
+      "http.url": ctx.request.url.toString(),
+      "http.route": path,
+      "http.user_agent": ctx.request.headers.get("user-agent") || "",
+      "service.name": serviceName,
+      "service.version": serviceVersion,
+    },
   });
   
   metricsCollector.incrementConnection();
@@ -295,30 +243,40 @@ app.use(async (ctx: Context, next: Next) => {
     
     // 設置 span 狀態為成功
     const status = ctx.response.status || 200;
-    tracer.addSpanTags(span.spanId, {
+    span.setAttributes({
       "http.status_code": status,
       "http.response.size": parseInt(ctx.response.headers.get("content-length") || "0"),
     });
     
     if (status >= 400) {
-      span.status = "error";
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: `HTTP ${status}`,
+      });
+    } else {
+      span.setStatus({ code: SpanStatusCode.OK });
     }
     
   } catch (error) {
     // 記錄錯誤到 span
-    tracer.logError(span.spanId, error as Error);
+    span.recordException(error as Error);
+    span.setStatus({
+      code: SpanStatusCode.ERROR,
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
     throw error;
   } finally {
     const duration = Date.now() - startTime;
     const status = ctx.response.status?.toString() || "200";
     
     // 記錄請求持續時間
-    tracer.addSpanTags(span.spanId, {
+    span.setAttributes({
       "http.request.duration_ms": duration,
     });
     
-    // 結束 span
-    tracer.finishSpan(span.spanId);
+    // 結束 span 並導出
+    span.end();
+    await exporter.exportSpan(span);
     
     // 更新 metrics
     metricsCollector.recordHttpDuration(method, path, duration);
@@ -350,11 +308,11 @@ app.use(async (ctx: Context, next: Next) => {
   
   if (auth && auth.startsWith("Bearer ")) {
     // 創建子 span 來追蹤 JWT 驗證過程
-    const jwtSpan = tracer.startSpan("JWT Verification", parentSpan.spanId);
-    
-    tracer.addSpanTags(jwtSpan.spanId, {
-      "auth.method": "jwt",
-      "auth.token_present": true,
+    const jwtSpan = tracer.startSpan("JWT Verification", {
+      attributes: {
+        "auth.method": "jwt",
+        "auth.token_present": true,
+      },
     });
     
     const jwt = auth.replace("Bearer ", "");
@@ -362,24 +320,30 @@ app.use(async (ctx: Context, next: Next) => {
       const { payload } = await jwtVerify(jwt, JWT_SECRET, { algorithms: ["HS256"] });
       ctx.state.user = payload;
       
-      tracer.addSpanTags(jwtSpan.spanId, {
+      jwtSpan.setAttributes({
         "auth.success": true,
         "auth.user_id": String(payload.sub || payload.userId || "unknown"),
       });
+      jwtSpan.setStatus({ code: SpanStatusCode.OK });
       
     } catch (e) {
-      tracer.addSpanTags(jwtSpan.spanId, {
+      jwtSpan.setAttributes({
         "auth.success": false,
         "auth.error": e instanceof Error ? e.message : "Unknown error",
       });
-      tracer.logError(jwtSpan.spanId, e as Error);
+      jwtSpan.recordException(e as Error);
+      jwtSpan.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: "JWT verification failed",
+      });
       console.error(`[${new Date().toISOString()}] [ERROR] [JWT] 驗證失敗:`, e);
     } finally {
-      tracer.finishSpan(jwtSpan.spanId);
+      jwtSpan.end();
+      await exporter.exportSpan(jwtSpan);
     }
   } else {
     // 記錄無認證令牌的情況
-    tracer.addSpanTags(parentSpan.spanId, {
+    parentSpan.setAttributes({
       "auth.token_present": false,
     });
   }
