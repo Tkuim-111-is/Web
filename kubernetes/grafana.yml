@@ -77,6 +77,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: grafana
+  namespace: deno-web-app
 spec:
   ports:
     - port: 3000
@@ -85,4 +86,36 @@ spec:
   selector:
     app: grafana
   sessionAffinity: None
-  type: LoadBalancer
+  type: ClusterIP
+---
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: grafana-managed-certificate
+  namespace: deno-web-app
+spec:
+  domains:
+  - "grafana.surecurity.org"
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana-ingress
+  namespace: deno-web-app
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    kubernetes.io/ingress.global-static-ip-name: "deno-gke-ip"
+    networking.gke.io/managed-certificates: "grafana-managed-certificate"
+spec:
+  ingressClassName: gce
+  rules:
+  - host: grafana.surecurity.org
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: grafana
+            port:
+              number: 3000
