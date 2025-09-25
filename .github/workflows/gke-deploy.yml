@@ -157,9 +157,24 @@ jobs:
             kubectl rollout status deployment/grafana -n ${{ env.DEPLOYMENT_NAME }} --timeout=60s || true
           fi
 
+      - name: 部署 Prometheus 到 GKE
+        run: |
+          echo "部署 Prometheus 監控..."
+          kubectl apply -f kubernetes/prometheus.yaml
+
+      - name: 部署 Loki 到 GKE
+        run: |
+          echo "部署 Loki 日誌聚合..."
+          kubectl apply -f kubernetes/loki.yaml
+
+      - name: 部署 Tempo 到 GKE
+        run: |
+          echo "部署 Tempo 分佈式追蹤..."
+          kubectl apply -f kubernetes/tempo.yaml
+
       - name: 部署 Grafana 到 GKE
         run: |
-          echo "部署 Grafana 資料庫..."
+          echo "部署 Grafana ..."
           kubectl apply -f kubernetes/grafana.yml
       
       - name: 部署應用程式到 GKE

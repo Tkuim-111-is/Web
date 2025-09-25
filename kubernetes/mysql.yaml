@@ -30,6 +30,7 @@ spec:
       labels:
         app: mysql
     spec:
+      serviceAccountName: mysql
       containers:
       - name: mysql
         image: mysql:8.0
@@ -111,4 +112,14 @@ spec:
     protocol: TCP
     name: mysql
   selector:
+    app: mysql
+
+---
+# MySQL ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mysql
+  namespace: deno-web-app
+  labels:
     app: mysql

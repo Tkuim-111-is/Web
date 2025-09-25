@@ -20,6 +20,7 @@ spec:
       labels:
         app: deno-web-app
     spec:
+      serviceAccountName: deno-web-app
       containers:
       - name: deno-web-app
         image: asia-east1-docker.pkg.dev/PROJECT_ID/deno-web-app/deno-web-app:latest
@@ -139,3 +140,13 @@ spec:
             name: deno-web-app-service
             port:
               number: 80
+
+---
+# Deno Web App ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: deno-web-app
+  namespace: deno-web-app
+  labels:
+    app: deno-web-app
