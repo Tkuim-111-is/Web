@@ -1,6 +1,14 @@
 {
   "imports": {
-    "std/": "https://deno.land/std@0.177.0/",
-    "http/": "https://deno.land/std@0.177.0/http/"
+    "std/": "https://deno.land/std@0.224.0/",
+    "http/": "https://deno.land/std@0.224.0/http/",
+    "dotenv/": "https://deno.land/std@0.224.0/dotenv/",
+    "oak/": "https://deno.land/x/oak@v17.1.6/",
+    "jose/": "https://deno.land/x/jose@v5.3.0/",
+    "@opentelemetry/api": "npm:@opentelemetry/api@1.9.0",
+    "@opentelemetry/sdk-node": "npm:@opentelemetry/sdk-node@0.52.0",
+    "@opentelemetry/semantic-conventions": "npm:@opentelemetry/semantic-conventions@1.25.0",
+    "@opentelemetry/instrumentation-http": "npm:@opentelemetry/instrumentation-http@0.52.0",
+    "@opentelemetry/exporter-trace-otlp-http": "npm:@opentelemetry/exporter-trace-otlp-http@0.52.0"
   }
 } 

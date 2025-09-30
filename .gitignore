@@ -6,3 +6,4 @@ github-gke-deployer-key.json
 /scripts
 .DS_Store
 deno.lock
+gemini.md
