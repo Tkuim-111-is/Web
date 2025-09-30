@@ -1,7 +1,7 @@
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { HttpInstrumentation } from "@opentelemetry/instrumentation-http";
-import { Resource } from "@opentelemetry/resources";
+import { resourceFromAttributes } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from "@opentelemetry/semantic-conventions";
 
 import { Application, Router, send, type Context, type Next } from "oak/mod.ts";
@@ -30,12 +30,14 @@ const traceExporter = new OTLPTraceExporter({
 
 import { AsyncLocalStorageContextManager } from "npm:@opentelemetry/context-async-hooks";
 
+const resource = resourceFromAttributes({
+  [ATTR_SERVICE_NAME]: serviceName,
+  [ATTR_SERVICE_VERSION]: serviceVersion,
+  "service.namespace": "deno-web-app",
+});
+
 const sdk = new NodeSDK({
-  resource: new Resource({
-    [ATTR_SERVICE_NAME]: serviceName,
-    [ATTR_SERVICE_VERSION]: serviceVersion,
-    "service.namespace": "deno-web-app",
-  }),
+  resource,
   contextManager: new AsyncLocalStorageContextManager(),
   traceExporter,
   instrumentations: [new HttpInstrumentation()],
