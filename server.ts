@@ -2,7 +2,7 @@ import { NodeSDK } from "@opentelemetry/sdk-node";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { HttpInstrumentation } from "@opentelemetry/instrumentation-http";
 import { Resource } from "@opentelemetry/resources";
-import { SemanticResourceAttributes } from "npm:@opentelemetry/semantic-conventions";
+import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from "@opentelemetry/semantic-conventions";
 
 import { Application, Router, send, type Context, type Next } from "oak/mod.ts";
 import { registerRouter } from "./api/auth/register.ts";
@@ -10,7 +10,7 @@ import { loginRouter } from "./api/auth/login.ts";
 import { learnStatusRouter } from "./api/profile/learn_status.ts";
 import "dotenv/load.ts";
 import { jwtVerify } from "jose/jwt/verify.ts";
-import { trace, SpanStatusCode } from "@opentelemetry/api";
+import { trace, context, SpanStatusCode } from "@opentelemetry/api";
 
 // ==========================
 // OpenTelemetry 追蹤設定 (使用標準 SDK)
@@ -32,9 +32,9 @@ import { AsyncLocalStorageContextManager } from "npm:@opentelemetry/context-asyn
 
 const sdk = new NodeSDK({
   resource: new Resource({
-    [SemanticResourceAttributes.SERVICE_NAME]: serviceName,
-    [SemanticResourceAttributes.SERVICE_VERSION]: serviceVersion,
-    [SemanticResourceAttributes.SERVICE_NAMESPACE]: "deno-web-app",
+    [ATTR_SERVICE_NAME]: serviceName,
+    [ATTR_SERVICE_VERSION]: serviceVersion,
+    "service.namespace": "deno-web-app",
   }),
   contextManager: new AsyncLocalStorageContextManager(),
   traceExporter,
@@ -195,7 +195,7 @@ app.use(async (ctx: Context, next: Next) => {
 // JWT 驗證：將驗證結果存入 ctx.state.user
 app.use(async (ctx: Context, next: Next) => {
   const auth = ctx.request.headers.get("Authorization");
-  const currentSpan = trace.getSpan(trace.context.active());
+  const currentSpan = trace.getSpan(context.active());
 
   if (auth && auth.startsWith("Bearer ")) {
     const jwt = auth.replace("Bearer ", "");

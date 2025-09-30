@@ -11,6 +11,6 @@
     "@opentelemetry/instrumentation-http": "npm:@opentelemetry/instrumentation-http@0.205.0",
     "@opentelemetry/exporter-trace-otlp-http": "npm:@opentelemetry/exporter-trace-otlp-http@0.205.0",
     "@opentelemetry/context-async-storage": "npm:@opentelemetry/context-async-hooks@2.1.0",
-    "@opentelemetry/resources": "@opentelemetry/resources@2.1.0"
+    "@opentelemetry/resources": "npm:@opentelemetry/resources@2.1.0"
   }
 } 

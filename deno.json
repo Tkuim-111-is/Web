@@ -4,6 +4,7 @@
     "dev": "deno run --allow-net --allow-read --allow-env --watch server.ts"
   },
   "importMap": "./import_map.json",
+  "nodeModulesDir": "auto",
   "compilerOptions": {
     "lib": [
       "deno.window",
