@@ -28,12 +28,15 @@ const traceExporter = new OTLPTraceExporter({
   url: `${otelCollectorEndpoint}/v1/traces`,
 });
 
+import { AsyncLocalStorageContextManager } from "npm:@opentelemetry/context-async-storage@1.25.0";
+
 const sdk = new NodeSDK({
   resource: new Resource({
     [SemanticResourceAttributes.SERVICE_NAME]: serviceName,
     [SemanticResourceAttributes.SERVICE_VERSION]: serviceVersion,
     [SemanticResourceAttributes.SERVICE_NAMESPACE]: "deno-web-app",
   }),
+  contextManager: new AsyncLocalStorageContextManager(),
   traceExporter,
   instrumentations: [new HttpInstrumentation()],
 });

@@ -9,6 +9,7 @@
     "@opentelemetry/sdk-node": "npm:@opentelemetry/sdk-node@0.52.0",
     "@opentelemetry/semantic-conventions": "npm:@opentelemetry/semantic-conventions@1.25.0",
     "@opentelemetry/instrumentation-http": "npm:@opentelemetry/instrumentation-http@0.52.0",
-    "@opentelemetry/exporter-trace-otlp-http": "npm:@opentelemetry/exporter-trace-otlp-http@0.52.0"
+    "@opentelemetry/exporter-trace-otlp-http": "npm:@opentelemetry/exporter-trace-otlp-http@0.52.0",
+    "@opentelemetry/context-async-storage": "npm:@opentelemetry/context-async-storage@1.25.0"
   }
 } 
