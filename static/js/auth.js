@@ -1,6 +1,6 @@
 // 等待DOM加載完成
 document.addEventListener('DOMContentLoaded', () => {
-  // 檢查 URL 中是否有 Google OAuth 回調的 token
+
   const urlParams = new URLSearchParams(globalThis.location.search);
   const token = urlParams.get('token');
   const loginSuccess = urlParams.get('login_success');
@@ -146,17 +146,6 @@ document.addEventListener('DOMContentLoaded', () => {
             this.setAttribute('aria-label', '顯示密碼');
           }
         }
-      });
-    });
-  }
-  
-  // 社交登入按鈕
-  const socialButtons = document.querySelectorAll('.btn-social');
-  if (socialButtons.length > 0) {
-    socialButtons.forEach(button => {
-      button.addEventListener('click', function() {
-        const provider = this.classList.contains('btn-google') ? 'Google' : 'Facebook';
-        showMessage(`正在使用${provider}帳號登入...`, 'info');
       });
     });
   }
