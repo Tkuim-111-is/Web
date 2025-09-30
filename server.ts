@@ -20,9 +20,9 @@ const serviceName = "deno-web-app";
 const serviceVersion = "1.0.0";
 
 // 決定 OTLP Collector 的端點
-// 在 K8s 中，使用服務名稱 (tempo) 和命名空間 (deno-web-app)
-// 完整的 FQDN 是 tempo.deno-web-app.svc.cluster.local
-const otelCollectorEndpoint = Deno.env.get("OTEL_COLLECTOR_ENDPOINT") || "http://tempo.deno-web-app.svc.cluster.local:4318";
+// 在 K8s 中，使用 OpenTelemetry Collector 服務名稱和命名空間 (deno-web-app)
+// 完整的 FQDN 是 otel-collector.deno-web-app.svc.cluster.local
+const otelCollectorEndpoint = Deno.env.get("OTEL_COLLECTOR_ENDPOINT") || "http://otel-collector.deno-web-app.svc.cluster.local:4318";
 
 const traceExporter = new OTLPTraceExporter({
   url: `${otelCollectorEndpoint}/v1/traces`,
