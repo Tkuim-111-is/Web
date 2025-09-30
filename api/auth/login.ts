@@ -3,6 +3,7 @@ import { Client } from "https://deno.land/x/mysql/mod.ts";
 import * as bcrypt from "https://deno.land/x/bcrypt/mod.ts";
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
 import { SignJWT } from "https://deno.land/x/jose@v5.3.0/jwt/sign.ts";
+import { trace, context, SpanStatusCode } from "@opentelemetry/api";
 
 const dbConfig = {
   hostname: Deno.env.get("DB_HOST") ?? "",
@@ -23,48 +24,84 @@ if (!JWT_SECRET_RAW) {
 const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_RAW);
 
 loginRouter.post("/api/auth/login", async (ctx) => {
-  try {
-    if (ctx.request.hasBody) {
-      const { email, password } = ctx.state.body;
-      const users = await client.query(
-        `SELECT * FROM users WHERE email = ?`,
-        [email]
-      );
+  const tracer = trace.getTracer("deno-web-app");
+  
+  return tracer.startActiveSpan("auth.login", async (span) => {
+    try {
+      span.setAttributes({
+        "http.method": "POST",
+        "http.route": "/api/auth/login",
+        "operation.name": "user_login"
+      });
 
-      if (users.length === 0) {
-        ctx.response.status = 401;
-        ctx.response.body = { success: false, message: "用戶名或密碼錯誤" };
-        return;
+      if (ctx.request.hasBody) {
+        const { email, password } = ctx.state.body;
+        
+        span.setAttribute("user.email", email);
+        
+        const users = await client.query(
+          `SELECT * FROM users WHERE email = ?`,
+          [email]
+        );
+
+        if (users.length === 0) {
+          span.setAttributes({
+            "auth.result": "user_not_found",
+            "auth.success": false
+          });
+          ctx.response.status = 401;
+          ctx.response.body = { success: false, message: "用戶名或密碼錯誤" };
+          return;
+        }
+
+        const user = users[0];
+        span.setAttribute("user.id", user.id);
+        
+        const validPassword = await bcrypt.compare(password, user.password);
+        console.log(`[${new Date().toISOString()}] [INFO] [login.ts] Password validation result:`, validPassword);
+
+        if (!validPassword) {
+          span.setAttributes({
+            "auth.result": "invalid_password",
+            "auth.success": false
+          });
+          ctx.response.status = 401;
+          ctx.response.body = { success: false, message: "用戶名或密碼錯誤" };
+          return;
+        }
+
+        // 使用 Jose 產生 JWT
+        const jwt = await new SignJWT({
+          id: user.id,
+          email: user.email,
+        })
+          .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+          .setExpirationTime("1d")
+          .sign(JWT_SECRET);
+
+        span.setAttributes({
+          "auth.result": "success",
+          "auth.success": true,
+          "jwt.generated": true
+        });
+
+        ctx.response.body = { success: true, id: user.id, token: jwt };
+      } else {
+        span.setAttribute("auth.result", "missing_body");
+        ctx.response.status = 400;
+        ctx.response.body = { success: false, message: "缺少請求資料" };
       }
-
-      const user = users[0];
-      const validPassword = await bcrypt.compare(password, user.password);
-      // logger.info("login.ts, "+validPassword)
-
-      console.log(`[${new Date().toISOString()}] [INFO] [login.ts] Password validation result:`, validPassword);
-
-      if (!validPassword) {
-        ctx.response.status = 401;
-        ctx.response.body = { success: false, message: "用戶名或密碼錯誤" };
-        return;
-      }
-
-      // 使用 Jose 產生 JWT
-      const jwt = await new SignJWT({
-        id: user.id,
-        email: user.email,
-      })
-        .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-        .setExpirationTime("1d")
-        .sign(JWT_SECRET);
-
-      ctx.response.body = { success: true, id: user.id, token: jwt };
-    } else {
-      ctx.response.status = 400;
-      ctx.response.body = { success: false, message: "缺少請求資料" };
+    } catch (error) {
+      span.recordException(error instanceof Error ? error : new Error(String(error)));
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: error instanceof Error ? error.message : String(error)
+      });
+      
+      ctx.response.status = 500;
+      ctx.response.body = { success: false, message: "伺服器錯誤", error: error instanceof Error ? error.message : String(error) };
+    } finally {
+      span.end();
     }
-  } catch (error) {
-    ctx.response.status = 500;
-    ctx.response.body = { success: false, message: "伺服器錯誤", error: error instanceof Error ? error.message : String(error) };
-  }
+  });
 });
