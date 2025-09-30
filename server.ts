@@ -1,8 +1,8 @@
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { HttpInstrumentation } from "@opentelemetry/instrumentation-http";
-import { Resource } from "npm:@opentelemetry/resources@1.25.0";
-import { SemanticResourceAttributes } from "npm:@opentelemetry/semantic-conventions@1.25.0";
+import { Resource } from "@opentelemetry/resources";
+import { SemanticResourceAttributes } from "npm:@opentelemetry/semantic-conventions";
 
 import { Application, Router, send, type Context, type Next } from "oak/mod.ts";
 import { registerRouter } from "./api/auth/register.ts";
@@ -28,7 +28,7 @@ const traceExporter = new OTLPTraceExporter({
   url: `${otelCollectorEndpoint}/v1/traces`,
 });
 
-import { AsyncLocalStorageContextManager } from "npm:@opentelemetry/context-async-storage@1.25.0";
+import { AsyncLocalStorageContextManager } from "npm:@opentelemetry/context-async-hooks";
 
 const sdk = new NodeSDK({
   resource: new Resource({
