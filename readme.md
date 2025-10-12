@@ -1,3 +1,5 @@
+**此專案僅由[<img src="https://github.com/JeffreyLeeTW.png" width="40"/>](https://github.com/JeffreyLeeTW)獨力完成**
+
 # Surecurity
 
 ![before_login_index_page](.github/images/web/before_login_index_page.png)
