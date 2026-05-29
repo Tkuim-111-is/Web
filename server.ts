@@ -35,7 +35,8 @@ class DenoOTLPExporter {
 
   private async flushSpans(): Promise<void> {
     if (this.spanBuffer.length === 0) return;
-    
+    if (!this.collectorEndpoint) return;
+
     try {
       const spans = this.spanBuffer.splice(0); // 取出所有spans並清空緩衝區
       const otlpSpans = spans.map(({ span, spanName, startTime, endTime, parentSpanId }) => {
@@ -97,38 +98,23 @@ class DenoOTLPExporter {
         }]
       };
 
-      // 嘗試多個端點
-      const endpoints = [
-        `http://${this.collectorEndpoint}/v1/traces`,
-        `http://otel-collector.deno-web-app.svc.cluster.local:4318/v1/traces`
-      ];
+      const endpoint = `http://${this.collectorEndpoint}/v1/traces`;
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(2000)
+        });
 
-      let sent = false;
-      for (const endpoint of endpoints) {
-        try {
-          const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
-            body: JSON.stringify(payload),
-            signal: AbortSignal.timeout(5000)
-          });
-
-          if (response.ok) {
-            console.log(`[${new Date().toISOString()}] [INFO] [tracing] 成功發送 ${otlpSpans.length} 個 spans 到 ${endpoint}`);
-            sent = true;
-            break;
-          }
-        } catch (endpointError) {
-          console.warn(`[${new Date().toISOString()}] [WARN] [tracing] ${endpoint} 連接失敗:`, endpointError);
-          continue;
+        if (response.ok) {
+          console.log(`[${new Date().toISOString()}] [INFO] [tracing] 成功發送 ${otlpSpans.length} 個 spans 到 ${endpoint}`);
         }
-      }
-
-      if (!sent) {
-        console.error(`[${new Date().toISOString()}] [ERROR] [tracing] 所有端點都無法發送 ${otlpSpans.length} 個 spans`);
+      } catch (_endpointError) {
+        // collector 不可用時靜默跳過，避免影響請求延遲
       }
 
     } catch (error) {
@@ -140,7 +126,7 @@ class DenoOTLPExporter {
 // 初始化 OpenTelemetry
 const serviceName = "deno-web-app";
 const serviceVersion = "1.0.0";
-const collectorEndpoint = Deno.env.get("OTEL_COLLECTOR_ENDPOINT") || "otel-collector:4318";
+const collectorEndpoint = Deno.env.get("OTEL_COLLECTOR_ENDPOINT") ?? "";
 
 const exporter = new DenoOTLPExporter(serviceName, serviceVersion, collectorEndpoint);
 
