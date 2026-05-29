@@ -23,18 +23,24 @@ const _JWT_SECRET = new TextEncoder().encode(JWT_SECRET_RAW);
 
 // 新增學習歷程
 learnStatusRouter.post("/api/profile/learn_status", async (ctx) => {
+  const user = ctx.state.user;
+  if (!user) {
+    ctx.response.status = 401;
+    ctx.response.body = { success: false, message: "未登入" };
+    return;
+  }
   try {
     if (ctx.request.hasBody) {
-      const { user_id, context_id, err_count, time_record } = ctx.state.body;
-      if (!user_id || !context_id || err_count === undefined || time_record === undefined) {
+      const { context_id, err_count, time_record } = ctx.state.body;
+      if (!context_id || err_count === undefined || time_record === undefined) {
         ctx.response.status = 400;
         ctx.response.body = { success: false, message: "缺少必要欄位" };
         return;
       }
-      
+
       await client.execute(
         "INSERT INTO learn_status (user_id, context_id, err_count, time_record) VALUES (?, ?, ?, ?)",
-        [user_id, context_id, err_count, time_record]
+        [user.id, context_id, err_count, time_record]
       );
       ctx.response.body = { success: true };
     } else {
